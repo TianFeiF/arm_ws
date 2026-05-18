@@ -1,0 +1,460 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- This URDF was automatically created by SolidWorks to URDF Exporter! Originally created by Stephen Brawner (brawner@gmail.com) 
+     Commit Version: 1.6.0-4-g7f85cfe  Build Version: 1.6.7995.38578
+     For more information, please see http://wiki.ros.org/sw_urdf_exporter -->
+<robot
+  name="armv7">
+  <link
+    name="base_link">
+    <inertial>
+      <origin
+        xyz="4.4852E-05 3.6963E-05 0.071725"
+        rpy="0 0 0" />
+      <mass
+        value="1.5342" />
+      <inertia
+        ixx="0.0022302"
+        ixy="2.943E-07"
+        ixz="2.745E-06"
+        iyy="0.002233"
+        iyz="2.1247E-06"
+        izz="0.0019111" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://armv7/meshes/base_link.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.75294 0.75294 0.75294 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://armv7/meshes/base_link.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <link
+    name="link1">
+    <inertial>
+      <origin
+        xyz="-0.0043321 4.5056E-05 0.19994"
+        rpy="0 0 0" />
+      <mass
+        value="1.2668" />
+      <inertia
+        ixx="0.001245"
+        ixy="-2.151E-06"
+        ixz="2.7137E-06"
+        iyy="0.0013052"
+        iyz="2.9012E-07"
+        izz="0.0012486" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://armv7/meshes/link1.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.75294 0.75294 0.75294 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://armv7/meshes/link1.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint1"
+    type="revolute">
+    <origin
+      xyz="0 0 0"
+      rpy="0 0 0" />
+    <parent
+      link="base_link" />
+    <child
+      link="link1" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.14"
+      upper="3.14"
+      effort="38"
+      velocity="4.1887" />
+    <dynamics damping="1.0" friction="0.1"/>
+</joint>
+  <link
+    name="link2">
+    <inertial>
+      <origin
+        xyz="-1.46179257605251E-05 -0.101895250185516 0.000108730360751453"
+        rpy="0 0 0" />
+      <mass
+        value="1.40049945991682" />
+      <inertia
+        ixx="0.00277857033219757"
+        ixy="6.65339079336443E-07"
+        ixz="-1.23807735976067E-06"
+        iyy="0.000938931685575044"
+        iyz="-6.05226831848143E-06"
+        izz="0.00302956290007066" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://armv7/meshes/link2.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.752941176470588 0.752941176470588 0.752941176470588 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://armv7/meshes/link2.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint2"
+    type="revolute">
+    <origin
+      xyz="0 0 0.209"
+      rpy="-1.5708 0 1.5708" />
+    <parent
+      link="link1" />
+    <child
+      link="link2" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-1.57"
+      upper="1.57"
+      effort="38"
+      velocity="4.1887" />
+    <dynamics damping="1.0" friction="0.1"/>
+</joint>
+  <link
+    name="link3">
+    <inertial>
+      <origin
+        xyz="-0.00404915390467001 -0.00148725683866971 0.0856399032270122"
+        rpy="0 0 0" />
+      <mass
+        value="1.22697872286913" />
+      <inertia
+        ixx="0.00124805893195714"
+        ixy="-1.72578423777798E-06"
+        ixz="-1.09317211582289E-05"
+        iyy="0.00122919016275901"
+        iyz="8.10662836218173E-07"
+        izz="0.000976388274733609" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://armv7/meshes/link3.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.752941176470588 0.752941176470588 0.752941176470588 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://armv7/meshes/link3.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint3"
+    type="revolute">
+    <origin
+      xyz="0 -0.17201 0"
+      rpy="1.5708 1.5708 0" />
+    <parent
+      link="link2" />
+    <child
+      link="link3" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.14"
+      upper="3.14"
+      effort="14"
+      velocity="3.1415" />
+    <dynamics damping="1.0" friction="0.1"/>
+</joint>
+  <link
+    name="link4">
+    <inertial>
+      <origin
+        xyz="3.72209589210349E-05 -0.10041718030709 -0.0280249605161877"
+        rpy="0 0 0" />
+      <mass
+        value="0.968850385291902" />
+      <inertia
+        ixx="0.00122274622479383"
+        ixy="-8.75694720990148E-07"
+        ixz="-4.92293809920124E-08"
+        iyy="0.000644077465205461"
+        iyz="-0.00026305767194024"
+        izz="0.00111589881926999" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://armv7/meshes/link4.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.752941176470588 0.752941176470588 0.752941176470588 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://armv7/meshes/link4.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint4"
+    type="revolute">
+    <origin
+      xyz="-0.0506339927297103 -0.0015294523067844 0.0992348804179653"
+      rpy="-1.57079632679461 0 1.57079632679492" />
+    <parent
+      link="link3" />
+    <child
+      link="link4" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-1.57"
+      upper="1.57"
+      effort="14"
+      velocity="3.1415" />
+    <dynamics damping="1.0" friction="0.1"/>
+</joint>
+  <link
+    name="link5">
+    <inertial>
+      <origin
+        xyz="0.00355403882713478 4.77844812177019E-05 0.0498371661924434"
+        rpy="0 0 0" />
+      <mass
+        value="0.523463515154146" />
+      <inertia
+        ixx="0.000259383969252199"
+        ixy="6.0295841923504E-07"
+        ixz="-1.41231214293632E-06"
+        iyy="0.000290213447654579"
+        iyz="-2.67851447504871E-07"
+        izz="0.000300911359305597" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://armv7/meshes/link5.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.752941176470588 0.752941176470588 0.752941176470588 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://armv7/meshes/link5.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint5"
+    type="revolute">
+    <origin
+      xyz="0 -0.185 -0.044971"
+      rpy="1.5708 1.5708 0" />
+    <parent
+      link="link4" />
+    <child
+      link="link5" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.14"
+      upper="3.14"
+      effort="6.8"
+      velocity="3.1415" />
+    <dynamics damping="1.0" friction="0.1"/>
+</joint>
+  <link
+    name="link6">
+    <inertial>
+      <origin
+        xyz="-2.20201392121615E-06 0.0708588893529285 -0.0361866271730837"
+        rpy="0 0 0" />
+      <mass
+        value="0.593580130238006" />
+      <inertia
+        ixx="0.000585694786802645"
+        ixy="1.11127671378374E-08"
+        ixz="-4.63214090021767E-08"
+        iyy="0.000223846386471812"
+        iyz="-1.81235631953882E-06"
+        izz="0.00063468658285997" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://armv7/meshes/link6.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.752941176470588 0.752941176470588 0.752941176470588 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://armv7/meshes/link6.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint6"
+    type="revolute">
+    <origin
+      xyz="0.036 0 0.059"
+      rpy="1.5708 0 1.5708" />
+    <parent
+      link="link5" />
+    <child
+      link="link6" />s
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-1.57"
+      upper="1.57"
+      effort="6.8"
+      velocity="3.1415" />
+    <dynamics damping="1.0" friction="0.1"/>
+</joint>
+  <link
+    name="link7">
+    <inertial>
+      <origin
+        xyz="6.207707958783E-15 -8.50044724279991E-11 -0.0527293345834396"
+        rpy="0 0 0" />
+      <mass
+        value="0.00755513616120157" />
+      <inertia
+        ixx="2.95514573258449E-06"
+        ixy="2.75535627085956E-15"
+        ixz="-8.5765669214282E-19"
+        iyy="3.07468678950722E-06"
+        iyz="1.36337449751387E-14"
+        izz="1.09669976010484E-06" />
+    </inertial>
+    <visual>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://armv7/meshes/link7.STL" />
+      </geometry>
+      <material
+        name="">
+        <color
+          rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" />
+      </material>
+    </visual>
+    <collision>
+      <origin
+        xyz="0 0 0"
+        rpy="0 0 0" />
+      <geometry>
+        <mesh
+          filename="package://armv7/meshes/link7.STL" />
+      </geometry>
+    </collision>
+  </link>
+  <joint
+    name="joint7"
+    type="revolute">
+    <origin
+      xyz="0 0.188 -0.036001"
+      rpy="-1.5708 -1.5708 0" />
+    <parent
+      link="link6" />
+    <child
+      link="link7" />
+    <axis
+      xyz="0 0 1" />
+    <limit
+      lower="-3.14"
+      upper="3.14"
+      effort="6.8"
+      velocity="3.1415" />
+    <dynamics damping="1.0" friction="0.1"/>
+</joint>
+</robot>

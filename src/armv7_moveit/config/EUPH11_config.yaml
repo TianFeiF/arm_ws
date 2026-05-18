@@ -1,0 +1,35 @@
+# Configuration file for Maxon EPOS3 drive
+vendor_id: 0x00001097
+product_id: 0x00002406
+# assign_activate: 0x0300 # DC Synch register (Commented out to disable DC Sync)
+auto_fault_reset: true # true = automatic fault reset, false = fault reset on rising edge command interface "reset_fault"
+sdo: # sdo data to be transferred at drive startup
+  - { index: 0x60C2, sub_index: 1, type: uint8, value: 10 } # Set interpolation time for cyclic modes to 10 ms
+  - { index: 0x60C2, sub_index: 2, type: int8, value: -3 } # Set base 10-3s
+rpdo: # RxPDO = receive PDO Mapping
+  - index: 0x1600
+    channels:
+      - { index: 0x6040, sub_index: 0, type: uint16, default: 0 } # Control word
+      - {
+          index: 0x607a,
+          sub_index: 0,
+          type: int32,
+          command_interface: position,
+          factor: 1053424.3,
+          default: .nan,
+        } # Target position
+      - { index: 0x60ff, sub_index: 0, type: int32, default: 0 } # Target velocity
+      - { index: 0x6071, sub_index: 0, type: int16, default: 0 } # Target torque
+      - { index: 0x6060, sub_index: 0, type: int8, default: 8 } # Mode of operation
+      - { index: 0x60c2, sub_index: 0x01, type: int8 } # Gap
+
+tpdo: # TxPDO = transmit PDO Mapping
+  - index: 0x1a00
+    channels:
+      - { index: 0x6041, sub_index: 0, type: uint16 } # Status word
+      - { index: 0x6064, sub_index: 0, type: int32, state_interface: position, factor: 0.000000949284725 } # Position actual value
+      - { index: 0x606c, sub_index: 0, type: int32, state_interface: velocity, factor: 0.000000949284725 } # Velocity actual value
+      - { index: 0x6077, sub_index: 0, type: int16, state_interface: effort , factor: 0.0068 } # Torque actual value
+      - { index: 0x6061, sub_index: 0, type: int8 } # Mode of operation display
+      - { index: 0x603f, sub_index: 0, type: uint16 } # Error Code
+      - { index: 0x2026, sub_index: 0, type: int8 } # Gap

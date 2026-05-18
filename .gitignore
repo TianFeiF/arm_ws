@@ -1,0 +1,33 @@
+# colcon
+build/
+install/
+log/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 大文件类型
+*.AppImage
+*.zip
+*.tar.gz
+*.bag
+*.mcap
+
+# 日志/临时
+*.log
+outputs_*/
+terminal_logs.txt
+return.txt

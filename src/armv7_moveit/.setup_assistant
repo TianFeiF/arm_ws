@@ -1,0 +1,31 @@
+moveit_setup_assistant_config:
+  urdf:
+    package: armv7
+    relative_path: urdf/armv7.urdf
+  srdf:
+    relative_path: config/armv7.srdf
+  package_settings:
+    author_name: fish
+    author_email: fish@qq.com
+    generated_timestamp: 1776741026
+  control_xacro:
+    command:
+      - position
+      - velocity
+      - effort
+    state:
+      - position
+      - velocity
+      - effort
+  modified_urdf:
+    xacros:
+      - control_xacro
+  control_xacro:
+    command:
+      - position
+      - velocity
+      - effort
+    state:
+      - position
+      - velocity
+      - effort
