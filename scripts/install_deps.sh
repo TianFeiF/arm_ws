@@ -70,6 +70,9 @@ APT_PACKAGES=(
     ros-humble-joint-state-broadcaster
     ros-humble-joint-trajectory-controller
 
+    # rqt 诊断可视化(armv7_diagnostics 推荐使用)
+    ros-humble-rqt-robot-monitor
+
     # IgH EtherCAT master
     ethercat-master
     libethercat-dev

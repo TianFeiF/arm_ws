@@ -20,6 +20,7 @@ Issues encountered during porting / first-deployment, each with diagnosis and fi
 | 14 | E-Stop trigger returns `success=True message='already stopped'` after fresh launch | [stale-estop-state](#stale-estop-state) |
 | 15 | `/safety/bbox_state` topic empty but `workspace_bbox_node` is running | [bbox-tf-unavailable](#bbox-tf-unavailable) |
 | 16 | `hello_world` / `teach_playback` exits with `follow_joint_trajectory action server not available` | [trajectory-action-missing](#trajectory-action-missing) |
+| 17 | `RTPS_TRANSPORT_SHM Error: Failed init_port ... open_and_lock_file failed` flooding the log | [dds-shm-leak](#dds-shm-leak) |
 
 ---
 
@@ -432,6 +433,43 @@ ros2 action list | grep follow_joint_trajectory
 2. If `plan_group_controller` is missing entirely → spawner failed, see [controller-spawn-race](#controller-spawn-race).
 3. If you're running multiple `arm.launch.py` instances (look at `pgrep -af ros2_control_node`),
    stale ones may have grabbed the action name. Kill them all and re-launch.
+
+---
+
+## dds-shm-leak
+
+**Full symptom:** every spawn / service call times out with no obvious cause, and the log contains many lines like:
+```
+[RTPS_TRANSPORT_SHM Error] Failed init_port fastrtps_port7467: open_and_lock_file failed
+```
+`ros2_control_node` may even log `Loading controller 'plan_group_controller'` successfully, while the `spawner` declares `FATAL Failed loading controller plan_group_controller` and dies — the service responded but its reply was lost in transport.
+
+**Cause:** FastDDS (the default rmw for Humble) writes shared-memory lock files under `/dev/shm/fastrtps_*`. A process killed with `SIGKILL` (`kill -9`) does NOT get to clean those up. A subsequent process trying to grab the same port name fails to lock it.
+
+**Diagnose:**
+```bash
+ls /dev/shm/ | grep fastrtps          # if there are entries when no ROS nodes are running → leaked
+pgrep -af "ros2_control_node|move_group|robot_state_publisher|workspace_bbox|estop_node"
+# should be empty when nothing should be running
+```
+
+**Fix:** Multi-pass kill (some launchers re-fork their children if killed singly) plus shm cleanup:
+```bash
+for i in 1 2 3 4 5; do
+    for p in $(pgrep -f "ros2 launch armv7|ros2_control_node|move_group|workspace_bbox|estop_node|joint_diagnostics|robot_state_publisher|static_transform_publisher|spawner|rviz2"); do
+        kill -KILL "$p" 2>/dev/null
+    done
+    sleep 1
+done
+rm -f /dev/shm/fastrtps_* /dev/shm/sem.fastrtps_*
+ros2 daemon stop && sleep 1 && ros2 daemon start
+```
+Then relaunch normally.
+
+**Prevention:** when developing,
+- stop launches with Ctrl-C in the launch terminal (lets SIGINT propagate)
+- avoid running `&` in background then `kill $!` — the launcher dies but its children keep the shm
+- prefer `setsid ros2 launch ... &` plus `kill -- -$PGID` to kill the whole process group
 
 ---
 

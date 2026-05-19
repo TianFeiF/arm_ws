@@ -13,10 +13,20 @@ from __future__ import annotations
 
 import rclpy
 from rclpy.node import Node
+from rclpy.qos import QoSDurabilityPolicy, QoSProfile, QoSReliabilityPolicy
 from std_msgs.msg import Bool, String
 from std_srvs.srv import Trigger
 import tf2_ros
 from tf2_ros import TransformException
+
+
+def _latched_qos() -> QoSProfile:
+    """TRANSIENT_LOCAL so a late subscriber gets the last value immediately."""
+    return QoSProfile(
+        depth=1,
+        durability=QoSDurabilityPolicy.TRANSIENT_LOCAL,
+        reliability=QoSReliabilityPolicy.RELIABLE,
+    )
 
 
 class WorkspaceBboxNode(Node):
@@ -48,7 +58,10 @@ class WorkspaceBboxNode(Node):
         rate = max(1.0, float(self.get_parameter('check_rate').value))
 
         self._pub_in_bounds = self.create_publisher(Bool, '/safety/in_bounds', 10)
-        self._pub_state = self.create_publisher(String, '/safety/bbox_state', 10)
+        # bbox_state is latched so subscribers connecting after the last
+        # transition still see the current state.
+        self._pub_state = self.create_publisher(
+            String, '/safety/bbox_state', _latched_qos())
 
         self._tf_buf = tf2_ros.Buffer()
         self._tf_lis = tf2_ros.TransformListener(self._tf_buf, self)
@@ -93,8 +106,13 @@ class WorkspaceBboxNode(Node):
         state = self._classify(t.x, t.y, t.z)
 
         self._pub_in_bounds.publish(Bool(data=(state != 'out_of_bounds')))
+        # Republish state on every tick. The latched QoS means new subscribers
+        # still get the current value immediately, AND continuous publishing
+        # makes external watchdogs (e.g. `ros2 topic hz /safety/bbox_state`)
+        # work as expected.
+        self._pub_state.publish(String(data=state))
+
         if state != self._last_state:
-            self._pub_state.publish(String(data=state))
             level = self.get_logger().info if state == 'ok' else self.get_logger().warn
             level(f"bbox state {self._last_state or '(init)'} -> {state} "
                   f"(TCP={t.x:.3f},{t.y:.3f},{t.z:.3f})")

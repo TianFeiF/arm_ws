@@ -109,8 +109,8 @@ ros2 topic echo /safety/in_bounds --once      # true = TCP inside bbox
 ros2 topic echo /safety/bbox_state --once     # 'ok' | 'warning' | 'out_of_bounds'
 ros2 topic echo /diagnostics --once           # per-joint health
 
-# Visualise diagnostics
-ros2 run rqt_runtime_monitor rqt_runtime_monitor   # GUI tree of joint states
+# Visualise diagnostics (需要先 sudo apt install ros-humble-rqt-robot-monitor)
+ros2 run rqt_robot_monitor rqt_robot_monitor       # GUI tree of joint states
 ```
 
 ### 2.4 Drive it from RViz

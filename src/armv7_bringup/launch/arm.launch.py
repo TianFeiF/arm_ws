@@ -13,7 +13,14 @@ from pathlib import Path
 
 from ament_index_python.packages import get_package_share_path
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction, TimerAction
+from launch.actions import (
+    DeclareLaunchArgument,
+    IncludeLaunchDescription,
+    OpaqueFunction,
+    RegisterEventHandler,
+    TimerAction,
+)
+from launch.event_handlers import OnProcessExit
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
@@ -87,23 +94,38 @@ def _setup(context):
     )
     actions.append(TimerAction(period=5.0, actions=[ros2_control_node]))
 
-    # Spawn both controllers from a SINGLE spawner Node, so they are loaded
-    # serially (the spawner CLI iterates internally). Two parallel spawner
-    # Nodes race on controller_manager >= 2.54 — `configure_controller`
-    # randomly fails with "no controller with this name exists".
-    actions.append(TimerAction(period=7.0, actions=[
-        Node(
-            package='controller_manager',
-            executable='spawner',
-            arguments=[
-                'joint_state_broadcaster',
-                'plan_group_controller',
-                '--controller-manager', '/controller_manager',
-                '--controller-manager-timeout', '30',
-            ],
-            output='screen',
-        ),
-    ]))
+    # Chain the two spawners via OnProcessExit so plan_group_controller is
+    # only spawned AFTER joint_state_broadcaster has fully finished spawning
+    # and exited. This is the official ros2_control pattern that sidesteps
+    # the controller_manager >= 2.54 race in which a parallel/serial spawner
+    # call randomly fails with
+    #     "Failed loading controller plan_group_controller"
+    # right after joint_state_broadcaster is activated.
+    jsb_spawner = Node(
+        package='controller_manager',
+        executable='spawner',
+        arguments=[
+            'joint_state_broadcaster',
+            '--controller-manager', '/controller_manager',
+            '--controller-manager-timeout', '30',
+        ],
+        output='screen',
+    )
+    pgc_spawner = Node(
+        package='controller_manager',
+        executable='spawner',
+        arguments=[
+            'plan_group_controller',
+            '--controller-manager', '/controller_manager',
+            '--controller-manager-timeout', '30',
+        ],
+        output='screen',
+    )
+
+    actions.append(TimerAction(period=7.0, actions=[jsb_spawner]))
+    actions.append(RegisterEventHandler(
+        OnProcessExit(target_action=jsb_spawner, on_exit=[pgc_spawner])
+    ))
 
     # Safety layer (workspace bbox + E-Stop) — start after controllers are up.
     if use_safety == 'true':
