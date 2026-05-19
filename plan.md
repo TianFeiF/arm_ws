@@ -163,7 +163,11 @@ arm_ws/src/
 ├── armv7_diagnostics/        # 诊断聚合
 ├── armv7_py/                 # Python API
 ├── armv7_cpp_api/            # C++ API
-├── armv7_examples/           # hello_world / teach_playback / pick_place
+├── armv7_safety/             # ✓ W2.2 + 2.3 — workspace bbox + E-Stop
+├── armv7_diagnostics/        # ✓ W2.4 — joint diagnostics aggregator
+├── armv7_py/                 # ✓ W2.5 — Python facade (Armv7Client)
+├── armv7_cpp_api/            # ✓ W2.6 — C++ facade
+├── armv7_examples/           # ✓ W2.7 — hello_world / teach_playback / pose_grid
 ├── armv7_ee_dummy_gripper/   # 示范 EE
 ├── armv7_eyehand/            # 手眼相机模板
 ├── armv7_dyn_ident/          # 动力学辨识(数据采集 + 离线脚本)
@@ -195,8 +199,16 @@ arm_ws/src/
 
 完整任务在各 phase 表格里。这里列出每周的"必须完成"红线:
 
-- [ ] W1: README + LICENSE + install_deps.sh + Docker + CI build
-- [ ] W2: E-Stop + Python API + 3 个示例 + colcon test 通过
+- [x] W1: README + LICENSE + install_deps.sh + Docker + CI build
+- [x] W2: E-Stop + Python API + 3 个示例 + colcon test 通过
+  - [x] W2.1  joint_limits.yaml(position / velocity / acceleration / effort)
+  - [x] W2.2  workspace_bbox 安全检测 + /safety/in_bounds /safety/bbox_state
+  - [x] W2.3  E-Stop topic/service + 联动 controller_manager
+  - [x] W2.4  joint diagnostics 聚合 -> /diagnostics
+  - [x] W2.5  Python API (armv7_py — Armv7Client)
+  - [x] W2.6  C++ API (armv7_cpp_api — same 5 methods)
+  - [x] W2.7  示例脚本(hello_world / teach_playback / pose_grid)
+  - [x] W2.8  单元测试 + colcon test(176 tests, 0 failures)
 - [ ] W3: 模块化 EE xacro + dummy gripper + pick_and_place 示例
 - [ ] W4: zero_force_controller 骨架 + v0.1.0 release
 

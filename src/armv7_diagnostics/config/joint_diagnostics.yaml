@@ -1,0 +1,23 @@
+# Thresholds used by joint_diagnostics_node to grade each joint as OK / WARN / ERROR.
+# Limits are read from the same joint_limits.yaml MoveIt uses; this file only
+# tells the aggregator how close to a limit counts as "warning".
+
+joint_diagnostics_node:
+  ros__parameters:
+
+    # Joint limit reference (absolute path or $(find pkg)/...). The node reads
+    # max_position, max_velocity, max_effort per joint.
+    limits_yaml: "$(find armv7_moveit_config)/config/joint_limits.yaml"
+
+    # Stale threshold: how many seconds without a /joint_states update before
+    # we flag the joint as STALE (DiagnosticStatus level ERROR).
+    stale_after_sec: 1.0
+
+    # Warning bands as a fraction of the limit. 0.85 means "you're at 85% of
+    # limit → WARN". Above 1.0 (limit exceeded) is always ERROR.
+    position_warn_frac: 0.95
+    velocity_warn_frac: 0.85
+    effort_warn_frac:   0.85
+
+    # Publish rate of /diagnostics (Hz). diagnostic_aggregator default = 1 Hz.
+    publish_rate: 2.0

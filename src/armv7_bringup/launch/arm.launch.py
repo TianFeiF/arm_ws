@@ -13,7 +13,8 @@ from pathlib import Path
 
 from ament_index_python.packages import get_package_share_path
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, OpaqueFunction, TimerAction
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, OpaqueFunction, TimerAction
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from moveit_configs_utils import MoveItConfigsBuilder
@@ -21,7 +22,6 @@ from moveit_configs_utils.launches import (
     generate_move_group_launch,
     generate_moveit_rviz_launch,
     generate_rsp_launch,
-    generate_spawn_controllers_launch,
     generate_static_virtual_joint_tfs_launch,
     generate_warehouse_db_launch,
 )
@@ -53,6 +53,8 @@ def _setup(context):
     use_rt = LaunchConfiguration('use_rt').perform(context)
     use_rviz = LaunchConfiguration('use_rviz').perform(context)
     use_db = LaunchConfiguration('db').perform(context)
+    use_safety = LaunchConfiguration('use_safety').perform(context)
+    use_diagnostics = LaunchConfiguration('use_diagnostics').perform(context)
 
     moveit_config = _build_moveit_config(_ros2_control_xacro(use_fake_hardware))
 
@@ -85,11 +87,37 @@ def _setup(context):
     )
     actions.append(TimerAction(period=5.0, actions=[ros2_control_node]))
 
-    # Spawn controllers (after ros2_control_node is up)
-    actions.append(TimerAction(
-        period=7.0,
-        actions=generate_spawn_controllers_launch(moveit_config).entities,
-    ))
+    # Spawn both controllers from a SINGLE spawner Node, so they are loaded
+    # serially (the spawner CLI iterates internally). Two parallel spawner
+    # Nodes race on controller_manager >= 2.54 — `configure_controller`
+    # randomly fails with "no controller with this name exists".
+    actions.append(TimerAction(period=7.0, actions=[
+        Node(
+            package='controller_manager',
+            executable='spawner',
+            arguments=[
+                'joint_state_broadcaster',
+                'plan_group_controller',
+                '--controller-manager', '/controller_manager',
+                '--controller-manager-timeout', '30',
+            ],
+            output='screen',
+        ),
+    ]))
+
+    # Safety layer (workspace bbox + E-Stop) — start after controllers are up.
+    if use_safety == 'true':
+        safety_share = get_package_share_path('armv7_safety')
+        actions.append(TimerAction(period=8.0, actions=[IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(str(safety_share / 'launch' / 'safety.launch.py'))
+        )]))
+
+    # Diagnostics aggregator — same timing.
+    if use_diagnostics == 'true':
+        diag_share = get_package_share_path('armv7_diagnostics')
+        actions.append(TimerAction(period=8.0, actions=[IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(str(diag_share / 'launch' / 'diagnostics.launch.py'))
+        )]))
 
     return actions
 
@@ -104,5 +132,9 @@ def generate_launch_description():
                               description='Start MoveIt warehouse database.'),
         DeclareLaunchArgument('use_rt', default_value='true',
                               description='Run ros2_control_node under SCHED_FIFO 99 (needs realtime group).'),
+        DeclareLaunchArgument('use_safety', default_value='true',
+                              description='Bring up armv7_safety (workspace bbox + E-Stop).'),
+        DeclareLaunchArgument('use_diagnostics', default_value='true',
+                              description='Bring up armv7_diagnostics (/diagnostics aggregator).'),
         OpaqueFunction(function=_setup),
     ])

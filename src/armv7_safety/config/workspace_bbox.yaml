@@ -1,0 +1,27 @@
+# Cartesian bounding-box that the arm's TCP must stay inside.
+# Coordinates are in `frame_id` (default: base_link), units metres.
+# Setting any min/max equal disables that axis.
+
+workspace_bbox_node:
+  ros__parameters:
+    frame_id: base_link
+    tcp_frame_id: link7
+
+    # default box: 1.2 m cube centred on base, floor at z=0
+    min_x: -0.6
+    max_x:  0.6
+    min_y: -0.6
+    max_y:  0.6
+    min_z:  0.0
+    max_z:  1.2
+
+    # How often to check (Hz)
+    check_rate: 50.0
+
+    # Margin pulled in from the box face; if TCP enters the margin layer we
+    # emit a "warning" instead of "out_of_bounds" so callers can decelerate.
+    margin: 0.05
+
+    # If true and TCP exits the box, the node calls /estop_trigger to halt
+    # motion. Off by default — operators usually want to see the warning first.
+    auto_estop_on_exit: false

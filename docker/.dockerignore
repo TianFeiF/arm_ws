@@ -1,0 +1,26 @@
+# colcon产物 — 容器内自己 build
+build/
+install/
+log/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+
+# Git internals
+.git/
+
+# Large data
+*.zip
+*.tar.gz
+*.bag
+*.mcap
+
+# Temp/cache
+__pycache__/
+*.pyc
+
+# Docs (not needed in image)
+docs/
+*.md

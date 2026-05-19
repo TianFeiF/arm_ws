@@ -11,6 +11,8 @@
 
   <exec_depend>armv7_description</exec_depend>
   <exec_depend>armv7_moveit_config</exec_depend>
+  <exec_depend>armv7_safety</exec_depend>
+  <exec_depend>armv7_diagnostics</exec_depend>
 
   <exec_depend>controller_manager</exec_depend>
   <exec_depend>joint_state_broadcaster</exec_depend>

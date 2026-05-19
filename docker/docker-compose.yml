@@ -1,0 +1,46 @@
+# docker compose -f docker/docker-compose.yml up dev
+#
+# Two services:
+#   dev      — interactive dev shell, src/ bind-mounted so edits on host take effect.
+#              Sim-only by default. Pass real EtherCAT through by switching to the
+#              `hardware` service below.
+#   hardware — adds device passthrough, realtime ulimits, host networking for
+#              EtherCAT. Host must have IgH master module loaded and
+#              /dev/EtherCAT0 present.
+
+version: "3.8"
+
+services:
+  dev:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+    image: armv7:dev
+    container_name: armv7-dev
+    # X11 forwarding for RViz (host must allow: xhost +local:docker)
+    environment:
+      - DISPLAY=${DISPLAY:-:0}
+      - QT_X11_NO_MITSHM=1
+    network_mode: host                   # ROS 2 DDS discovery
+    volumes:
+      - ../src:/workspace/src            # live edit on host
+      - /tmp/.X11-unix:/tmp/.X11-unix:ro
+    working_dir: /workspace
+    stdin_open: true
+    tty: true
+    command: bash
+
+  hardware:
+    extends:
+      service: dev
+    container_name: armv7-hw
+    # Pass through EtherCAT device + grant realtime
+    devices:
+      - /dev/EtherCAT0:/dev/EtherCAT0
+    cap_add:
+      - SYS_NICE                          # for chrt -f 99
+      - NET_ADMIN                         # for raw socket / NIC ops if needed
+    ulimits:
+      rtprio: 99
+      memlock: -1
+    privileged: false                     # devices + caps is enough

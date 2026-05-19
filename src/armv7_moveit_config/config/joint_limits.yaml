@@ -1,45 +1,98 @@
-# joint_limits.yaml allows the dynamics properties specified in the URDF to be overwritten or augmented as needed
+# Joint limits used by MoveIt for trajectory parameterisation.
+#
+# These OVERRIDE / AUGMENT what is in the URDF. ros2_control reads URDF
+# limits at hardware startup; MoveIt reads this file for planning.
+# Keep the two in sync (URDF: src/armv7_description/urdf/armv7.urdf).
+#
+# Position / velocity / effort come from the URDF; we duplicate them here
+# for explicitness. Acceleration is NOT in URDF (URDF has no field for it)
+# so it MUST be defined here.
 
-# For beginners, we downscale velocity and acceleration limits.
-# You can always specify higher scaling factors (<= 1.0) in your motion requests.  # Increase the values below to 1.0 to always move at maximum speed.
-default_velocity_scaling_factor: 0.1
-default_acceleration_scaling_factor: 0.1
+default_velocity_scaling_factor:     0.10
+default_acceleration_scaling_factor: 0.10
 
-# Specific joint properties can be changed with the keys [max_position, min_position, max_velocity, max_acceleration]
-# Joint limits can be turned off with [has_velocity_limits, has_acceleration_limits]
 joint_limits:
-  joint3:
-    has_velocity_limits: true
-    max_velocity: 3.1415000000000002
-    has_acceleration_limits: false
-    max_acceleration: 0
-  joint4:
-    has_velocity_limits: true
-    max_velocity: 3.1415000000000002
-    has_acceleration_limits: false
-    max_acceleration: 0
-  joint1:
-    has_velocity_limits: true
-    max_velocity: 4.1886999999999999
-    has_acceleration_limits: false
-    max_acceleration: 0
-  joint2:
-    has_velocity_limits: true
-    max_velocity: 4.1886999999999999
-    has_acceleration_limits: false
-    max_acceleration: 0
-  joint5:
-    has_velocity_limits: true
-    max_velocity: 3.1415000000000002
-    has_acceleration_limits: false
-    max_acceleration: 0
-  joint6:
-    has_velocity_limits: true
-    max_velocity: 3.1415000000000002
-    has_acceleration_limits: false
-    max_acceleration: 0
-  joint7:
-    has_velocity_limits: true
-    max_velocity: 3.1415000000000002
-    has_acceleration_limits: false
-    max_acceleration: 0
+
+  joint1:                            # base yaw
+    has_position_limits:     true
+    min_position:           -3.14
+    max_position:            3.14
+    has_velocity_limits:     true
+    max_velocity:            4.1887   # rad/s
+    has_acceleration_limits: true
+    max_acceleration:        10.0     # rad/s²
+    has_jerk_limits:         false
+    has_effort_limits:       true
+    max_effort:              38.0     # Nm
+
+  joint2:                            # shoulder pitch
+    has_position_limits:     true
+    min_position:           -1.57
+    max_position:            1.57
+    has_velocity_limits:     true
+    max_velocity:            4.1887
+    has_acceleration_limits: true
+    max_acceleration:        10.0
+    has_jerk_limits:         false
+    has_effort_limits:       true
+    max_effort:              38.0
+
+  joint3:                            # upper-arm twist
+    has_position_limits:     true
+    min_position:           -3.14
+    max_position:            3.14
+    has_velocity_limits:     true
+    max_velocity:            3.1415
+    has_acceleration_limits: true
+    max_acceleration:        15.0
+    has_jerk_limits:         false
+    has_effort_limits:       true
+    max_effort:              14.0
+
+  joint4:                            # elbow
+    has_position_limits:     true
+    min_position:           -1.57
+    max_position:            1.57
+    has_velocity_limits:     true
+    max_velocity:            3.1415
+    has_acceleration_limits: true
+    max_acceleration:        15.0
+    has_jerk_limits:         false
+    has_effort_limits:       true
+    max_effort:              14.0
+
+  joint5:                            # forearm twist
+    has_position_limits:     true
+    min_position:           -3.14
+    max_position:            3.14
+    has_velocity_limits:     true
+    max_velocity:            3.1415
+    has_acceleration_limits: true
+    max_acceleration:        20.0
+    has_jerk_limits:         false
+    has_effort_limits:       true
+    max_effort:              6.8
+
+  joint6:                            # wrist pitch
+    has_position_limits:     true
+    min_position:           -1.57
+    max_position:            1.57
+    has_velocity_limits:     true
+    max_velocity:            3.1415
+    has_acceleration_limits: true
+    max_acceleration:        20.0
+    has_jerk_limits:         false
+    has_effort_limits:       true
+    max_effort:              6.8
+
+  joint7:                            # wrist roll (tool flange)
+    has_position_limits:     true
+    min_position:           -3.14
+    max_position:            3.14
+    has_velocity_limits:     true
+    max_velocity:            3.1415
+    has_acceleration_limits: true
+    max_acceleration:        20.0
+    has_jerk_limits:         false
+    has_effort_limits:       true
+    max_effort:              6.8
