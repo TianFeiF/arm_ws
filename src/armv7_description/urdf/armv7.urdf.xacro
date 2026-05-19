@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<!--
+  Top-level xacro for armv7. By itself this file produces a description-only
+  URDF (no ros2_control hardware). Bringup packages pass `ros2_control_xacro`
+  as the absolute path to a *.ros2_control.xacro file that injects the
+  hardware-specific <ros2_control> tag.
+
+  Example for description-only display:
+      xacro armv7.urdf.xacro
+
+  Example for fake hardware bringup:
+      xacro armv7.urdf.xacro \
+            ros2_control_xacro:=$(ros2 pkg prefix armv7_bringup)/share/armv7_bringup/urdf/armv7_fake.ros2_control.xacro
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="armv7">
+    <xacro:arg name="initial_positions_file"
+               default="$(find armv7_moveit_config)/config/initial_positions.yaml" />
+    <xacro:arg name="ros2_control_xacro" default="" />
+
+    <xacro:include filename="$(find armv7_description)/urdf/armv7.urdf" />
+
+    <xacro:if value="${'$(arg ros2_control_xacro)' != ''}">
+        <xacro:include filename="$(arg ros2_control_xacro)" />
+        <xacro:armv7_ros2_control name="armv7" initial_positions_file="$(arg initial_positions_file)" />
+    </xacro:if>
+</robot>

@@ -26,7 +26,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://armv7/meshes/base_link.STL" />
+          filename="package://armv7_description/meshes/base_link.STL" />
       </geometry>
       <material
         name="">
@@ -40,7 +40,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://armv7/meshes/base_link.STL" />
+          filename="package://armv7_description/meshes/base_link.STL" />
       </geometry>
     </collision>
   </link>
@@ -66,7 +66,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://armv7/meshes/link1.STL" />
+          filename="package://armv7_description/meshes/link1.STL" />
       </geometry>
       <material
         name="">
@@ -80,7 +80,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://armv7/meshes/link1.STL" />
+          filename="package://armv7_description/meshes/link1.STL" />
       </geometry>
     </collision>
   </link>
@@ -125,7 +125,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://armv7/meshes/link2.STL" />
+          filename="package://armv7_description/meshes/link2.STL" />
       </geometry>
       <material
         name="">
@@ -139,7 +139,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://armv7/meshes/link2.STL" />
+          filename="package://armv7_description/meshes/link2.STL" />
       </geometry>
     </collision>
   </link>
@@ -184,7 +184,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://armv7/meshes/link3.STL" />
+          filename="package://armv7_description/meshes/link3.STL" />
       </geometry>
       <material
         name="">
@@ -198,7 +198,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://armv7/meshes/link3.STL" />
+          filename="package://armv7_description/meshes/link3.STL" />
       </geometry>
     </collision>
   </link>
@@ -243,7 +243,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://armv7/meshes/link4.STL" />
+          filename="package://armv7_description/meshes/link4.STL" />
       </geometry>
       <material
         name="">
@@ -257,7 +257,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://armv7/meshes/link4.STL" />
+          filename="package://armv7_description/meshes/link4.STL" />
       </geometry>
     </collision>
   </link>
@@ -302,7 +302,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://armv7/meshes/link5.STL" />
+          filename="package://armv7_description/meshes/link5.STL" />
       </geometry>
       <material
         name="">
@@ -316,7 +316,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://armv7/meshes/link5.STL" />
+          filename="package://armv7_description/meshes/link5.STL" />
       </geometry>
     </collision>
   </link>
@@ -361,7 +361,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://armv7/meshes/link6.STL" />
+          filename="package://armv7_description/meshes/link6.STL" />
       </geometry>
       <material
         name="">
@@ -375,7 +375,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://armv7/meshes/link6.STL" />
+          filename="package://armv7_description/meshes/link6.STL" />
       </geometry>
     </collision>
   </link>
@@ -420,7 +420,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://armv7/meshes/link7.STL" />
+          filename="package://armv7_description/meshes/link7.STL" />
       </geometry>
       <material
         name="">
@@ -434,7 +434,7 @@
         rpy="0 0 0" />
       <geometry>
         <mesh
-          filename="package://armv7/meshes/link7.STL" />
+          filename="package://armv7_description/meshes/link7.STL" />
       </geometry>
     </collision>
   </link>

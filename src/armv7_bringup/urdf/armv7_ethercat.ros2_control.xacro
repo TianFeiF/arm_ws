@@ -21,7 +21,7 @@
                   <param name="alias">0</param>
                   <param name="position">0</param>
                   <param name="mode_of_operation">8</param>
-                  <param name="slave_config">$(find armv7_moveit)/config/EUPH17_config.yaml</param>
+                  <param name="slave_config">$(find armv7_bringup)/config/EUPH17_config.yaml</param>
                 </ec_module>
             </joint>
             <joint name="joint2">
@@ -36,7 +36,7 @@
                   <param name="alias">0</param>
                   <param name="position">1</param>
                   <param name="mode_of_operation">8</param>
-                  <param name="slave_config">$(find armv7_moveit)/config/EUPH17_config.yaml</param>
+                  <param name="slave_config">$(find armv7_bringup)/config/EUPH17_config.yaml</param>
                 </ec_module>
             </joint>
             <joint name="joint3">
@@ -51,7 +51,7 @@
                   <param name="alias">0</param>
                   <param name="position">2</param>
                   <param name="mode_of_operation">8</param>
-                  <param name="slave_config">$(find armv7_moveit)/config/EUPH14_config.yaml</param>
+                  <param name="slave_config">$(find armv7_bringup)/config/EUPH14_config.yaml</param>
                 </ec_module>
             </joint>
             <joint name="joint4">
@@ -66,7 +66,7 @@
                   <param name="alias">0</param>
                   <param name="position">3</param>
                   <param name="mode_of_operation">8</param>
-                  <param name="slave_config">$(find armv7_moveit)/config/EUPH14_config.yaml</param>
+                  <param name="slave_config">$(find armv7_bringup)/config/EUPH14_config.yaml</param>
                 </ec_module>
             </joint>
             <joint name="joint5">
@@ -81,7 +81,7 @@
                   <param name="alias">0</param>
                   <param name="position">4</param>
                   <param name="mode_of_operation">8</param>
-                  <param name="slave_config">$(find armv7_moveit)/config/EUPH11_config.yaml</param>
+                  <param name="slave_config">$(find armv7_bringup)/config/EUPH11_config.yaml</param>
                 </ec_module>
             </joint>
             <joint name="joint6">
@@ -96,7 +96,7 @@
                   <param name="alias">0</param>
                   <param name="position">5</param>
                   <param name="mode_of_operation">8</param>
-                  <param name="slave_config">$(find armv7_moveit)/config/EUPH11_config.yaml</param>
+                  <param name="slave_config">$(find armv7_bringup)/config/EUPH11_config.yaml</param>
                 </ec_module>
             </joint>
             <joint name="joint7">
@@ -111,7 +111,7 @@
                   <param name="alias">0</param>
                   <param name="position">6</param>
                   <param name="mode_of_operation">8</param>
-                  <param name="slave_config">$(find armv7_moveit)/config/EUPH11_config.yaml</param>
+                  <param name="slave_config">$(find armv7_bringup)/config/EUPH11_config.yaml</param>
                 </ec_module>
             </joint>
         </ros2_control>

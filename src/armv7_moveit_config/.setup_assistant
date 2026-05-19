@@ -1,12 +1,12 @@
 moveit_setup_assistant_config:
   urdf:
-    package: armv7
-    relative_path: urdf/armv7.urdf
+    package: armv7_description
+    relative_path: urdf/armv7.urdf.xacro
   srdf:
     relative_path: config/armv7.srdf
   package_settings:
-    author_name: fish
-    author_email: fish@qq.com
+    author_name: TianFeiF
+    author_email: chunyvtian@gmail.com
     generated_timestamp: 1776741026
   control_xacro:
     command:

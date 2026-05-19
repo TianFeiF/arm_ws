@@ -1,7 +1,6 @@
-# Configuration file for Maxon EPOS3 drive
 vendor_id: 0x00001097
 product_id: 0x00002406
-# assign_activate: 0x0300 # DC Synch register (Commented out to disable DC Sync)
+assign_activate: 0x0300 # DC Synch register (Commented out to disable DC Sync)
 auto_fault_reset: true # true = automatic fault reset, false = fault reset on rising edge command interface "reset_fault"
 sdo: # sdo data to be transferred at drive startup
   - { index: 0x60C2, sub_index: 1, type: uint8, value: 10 } # Set interpolation time for cyclic modes to 10 ms

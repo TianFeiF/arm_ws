@@ -1,0 +1,31 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>armv7_bringup</name>
+  <version>0.1.0</version>
+  <description>Hardware bringup for the armv7 arm: ros2_control xacros, EtherCAT slave configs, controller manager, and the unified arm.launch.py entry point.</description>
+  <author>TianFeiF</author>
+  <maintainer email="chunyvtian@gmail.com">TianFeiF</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>armv7_description</exec_depend>
+  <exec_depend>armv7_moveit_config</exec_depend>
+
+  <exec_depend>controller_manager</exec_depend>
+  <exec_depend>joint_state_broadcaster</exec_depend>
+  <exec_depend>joint_trajectory_controller</exec_depend>
+  <exec_depend>ros2_control</exec_depend>
+  <exec_depend>ros2_controllers</exec_depend>
+
+  <exec_depend>ethercat_driver</exec_depend>
+  <exec_depend>ethercat_generic_cia402_drive</exec_depend>
+
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>xacro</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
