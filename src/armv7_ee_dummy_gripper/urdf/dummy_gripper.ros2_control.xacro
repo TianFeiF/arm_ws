@@ -1,0 +1,39 @@
+<?xml version="1.0"?>
+<!--
+  ros2_control hardware fragment for the dummy gripper.
+
+  Adds a SECOND <ros2_control> system named ee, separate from armv7_ros2_control,
+  using mock_components/GenericSystem so it works in sim. Replace with your real
+  gripper driver plugin (e.g. robotiq_driver, schunk_egp_driver) when wiring up
+  real hardware.
+
+  The macro is named `armv7_ee_ros2_control` (the generic name the top-level
+  armv7.urdf.xacro looks for via the `ee_ros2_control_xacro` arg). Any custom
+  end-effector that wants ros2_control should define a macro with this same
+  name so it plugs into arm.launch.py unchanged.
+
+  Usage (the top-level xacro calls this automatically when
+  `ee_ros2_control_xacro` is set alongside `ros2_control_xacro`):
+
+      <xacro:include filename="$(find armv7_ee_dummy_gripper)/urdf/dummy_gripper.ros2_control.xacro" />
+      <xacro:armv7_ee_ros2_control />
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="armv7_ee_ros2_control">
+    <ros2_control name="ee_gripper" type="system">
+      <hardware>
+        <plugin>mock_components/GenericSystem</plugin>
+      </hardware>
+
+      <joint name="ee_finger_left_joint">
+        <command_interface name="position" />
+        <state_interface name="position">
+          <param name="initial_value">0.035</param>
+        </state_interface>
+        <state_interface name="velocity" />
+      </joint>
+    </ros2_control>
+  </xacro:macro>
+
+</robot>

@@ -21,6 +21,7 @@ Issues encountered during porting / first-deployment, each with diagnosis and fi
 | 15 | `/safety/bbox_state` topic empty but `workspace_bbox_node` is running | [bbox-tf-unavailable](#bbox-tf-unavailable) |
 | 16 | `hello_world` / `teach_playback` exits with `follow_joint_trajectory action server not available` | [trajectory-action-missing](#trajectory-action-missing) |
 | 17 | `RTPS_TRANSPORT_SHM Error: Failed init_port ... open_and_lock_file failed` flooding the log | [dds-shm-leak](#dds-shm-leak) |
+| 18 | dummy gripper command accepted but finger never moves in sim | [gripper-mock-no-mirror](#gripper-mock-no-mirror) |
 
 ---
 
@@ -470,6 +471,39 @@ Then relaunch normally.
 - stop launches with Ctrl-C in the launch terminal (lets SIGINT propagate)
 - avoid running `&` in background then `kill $!` — the launcher dies but its children keep the shm
 - prefer `setsid ros2 launch ... &` plus `kill -- -$PGID` to kill the whole process group
+
+---
+
+## gripper-mock-no-mirror
+
+**Full symptom:** with `ee:=dummy_gripper`, `ee_gripper_controller` is `active`, the
+command interface shows `[claimed]`, publishing to `/ee_gripper_controller/commands`
+returns no error — but `ee_finger_left_joint` in `/joint_states` never changes from
+its initial value (0.035).
+
+**Cause:** `mock_components/GenericSystem` does NOT mirror a position command to the
+position state interface when that command interface carries `<param name="min">` /
+`<param name="max">` limit params. It treats a limited interface differently and
+skips the mirror. (Real gripper drivers are unaffected — they implement their own
+read/write.)
+
+**Fix:** drop the min/max params from the command interface in the EE's
+`*.ros2_control.xacro`:
+```xml
+<!-- WRONG (mock won't mirror) -->
+<command_interface name="position">
+  <param name="min">0.005</param>
+  <param name="max">0.035</param>
+</command_interface>
+
+<!-- RIGHT -->
+<command_interface name="position" />
+```
+Enforce the stroke limits in the URDF `<joint><limit ...>` instead — that's where
+they belong, and MoveIt / collision checking reads them there.
+
+This is already fixed in
+[src/armv7_ee_dummy_gripper/urdf/dummy_gripper.ros2_control.xacro](../src/armv7_ee_dummy_gripper/urdf/dummy_gripper.ros2_control.xacro).
 
 ---
 

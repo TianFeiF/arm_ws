@@ -14,10 +14,18 @@ def _stub_rclpy() -> None:
     Lets us import workspace_bbox_node without bringing up rclpy. We only need
     the `_classify` method, so stubbing constructors is enough.
     """
-    for mod_name in ['rclpy', 'rclpy.node', 'rclpy.time', 'tf2_ros',
+    for mod_name in ['rclpy', 'rclpy.node', 'rclpy.time', 'rclpy.qos', 'tf2_ros',
                      'std_msgs', 'std_msgs.msg', 'std_srvs', 'std_srvs.srv']:
         if mod_name not in sys.modules:
             sys.modules[mod_name] = types.ModuleType(mod_name)
+
+    # rclpy.qos stubs
+    qos_mod = sys.modules['rclpy.qos']
+    class _QoSProfile:
+        def __init__(self, **_kw): pass
+    qos_mod.QoSProfile = _QoSProfile
+    qos_mod.QoSDurabilityPolicy = type('QoSDurabilityPolicy', (), {'TRANSIENT_LOCAL': 1})
+    qos_mod.QoSReliabilityPolicy = type('QoSReliabilityPolicy', (), {'RELIABLE': 1})
 
     # rclpy.node.Node placeholder — workspace_bbox_node subclasses it
     rclpy_node = sys.modules['rclpy.node']

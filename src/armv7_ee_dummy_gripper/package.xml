@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>armv7_ee_dummy_gripper</name>
+  <version>0.1.0</version>
+  <description>Example end-effector for armv7: a two-finger parallel gripper drawn from primitive boxes. Provides a xacro macro `armv7_ee parent=...` that downstream code can include, plus a ros2_control mock interface so MoveIt's open/close commands have something to talk to.</description>
+  <author>TianFeiF</author>
+  <maintainer email="chunyvtian@gmail.com">TianFeiF</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>armv7_description</exec_depend>
+  <exec_depend>xacro</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

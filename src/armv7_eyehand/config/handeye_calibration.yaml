@@ -1,0 +1,22 @@
+# Hand-eye calibration result.
+#
+# Output from easy_handeye2 (or any other handeye package) goes here.
+# Replace the placeholder with your actual calibration. The eyehand
+# launch republishes this as a static TF: camera_mount_link → camera_link.
+#
+# Convention:
+#   - "tracking_base_frame":   link7  (or ee_base if you have a gripper)
+#   - "tracking_marker_frame": d435_color_optical_frame (camera link to publish)
+#   - transform.translation:   in metres
+#   - transform.rotation:      quaternion (xyzw)
+
+handeye_publisher_node:
+  ros__parameters:
+    parent_frame:   link7
+    camera_frame:   d435_link
+
+    # PLACEHOLDER — replace with calibration result.
+    translation:   [0.05, 0.0, 0.02]      # x, y, z (m)
+    rotation:      [0.0, 0.0, 0.0, 1.0]   # qx, qy, qz, qw
+
+    publish_rate:  20.0

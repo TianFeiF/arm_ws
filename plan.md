@@ -167,7 +167,10 @@ arm_ws/src/
 ├── armv7_diagnostics/        # ✓ W2.4 — joint diagnostics aggregator
 ├── armv7_py/                 # ✓ W2.5 — Python facade (Armv7Client)
 ├── armv7_cpp_api/            # ✓ W2.6 — C++ facade
-├── armv7_examples/           # ✓ W2.7 — hello_world / teach_playback / pose_grid
+├── armv7_examples/           # ✓ W2.7 + W3.6 — hello_world / teach_playback / pose_grid / pick_and_place
+├── armv7_ee_dummy_gripper/   # ✓ W3.1 + W3.2 — dummy 二指夹爪 xacro + mock ros2_control
+├── armv7_tcp/                # ✓ W3.5 — 热加载 TCP TF + /armv7/payload
+├── armv7_eyehand/            # ✓ W3.4 — RealSense mount xacro + handeye 静态 TF
 ├── armv7_ee_dummy_gripper/   # 示范 EE
 ├── armv7_eyehand/            # 手眼相机模板
 ├── armv7_dyn_ident/          # 动力学辨识(数据采集 + 离线脚本)
@@ -209,7 +212,13 @@ arm_ws/src/
   - [x] W2.6  C++ API (armv7_cpp_api — same 5 methods)
   - [x] W2.7  示例脚本(hello_world / teach_playback / pose_grid)
   - [x] W2.8  单元测试 + colcon test(176 tests, 0 failures)
-- [ ] W3: 模块化 EE xacro + dummy gripper + pick_and_place 示例
+- [x] W3: 模块化 EE xacro + dummy gripper + pick_and_place 示例
+  - [x] W3.1 armv7.urdf.xacro 加 ee_xacro / ee_parent arg
+  - [x] W3.2 armv7_ee_dummy_gripper(xacro + mock ros2_control 模板)
+  - [x] W3.3 docs/integration/ft_sensor.md(EtherCAT + 网口/topic 两条路径)
+  - [x] W3.4 armv7_eyehand(RealSense D435 mount + handeye 静态 TF launch)
+  - [x] W3.5 armv7_tcp(/armv7/payload + 热加载 TCP TF)
+  - [x] W3.6 pick_and_place 示例(用 dummy gripper)
 - [ ] W4: zero_force_controller 骨架 + v0.1.0 release
 
 ---

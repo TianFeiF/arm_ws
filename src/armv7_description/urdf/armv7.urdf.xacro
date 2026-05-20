@@ -1,26 +1,62 @@
 <?xml version="1.0"?>
 <!--
-  Top-level xacro for armv7. By itself this file produces a description-only
-  URDF (no ros2_control hardware). Bringup packages pass `ros2_control_xacro`
-  as the absolute path to a *.ros2_control.xacro file that injects the
-  hardware-specific <ros2_control> tag.
+  Top-level xacro for armv7.
 
-  Example for description-only display:
+  Three optional args:
+
+    ros2_control_xacro = <abs path>
+        A *.ros2_control.xacro file that defines a macro
+            xacro:armv7_ros2_control name=... initial_positions_file=...
+        and is included to inject the <ros2_control> tag.
+
+    ee_xacro = <abs path>
+        A *.urdf.xacro file that defines a macro
+            xacro:armv7_ee parent="link7"
+        which adds links + joints for an end-effector (gripper / tool / etc.).
+        Leave empty (default) for a bare arm with link7 as the TCP.
+
+    initial_positions_file = <abs path>
+        YAML file with `initial_positions: {joint1: 0.0, ...}`. Used by the
+        fake ros2_control xacro to seed mock state.
+
+  Examples:
+
+      # description-only
       xacro armv7.urdf.xacro
 
-  Example for fake hardware bringup:
+      # fake hardware + dummy gripper
       xacro armv7.urdf.xacro \
-            ros2_control_xacro:=$(ros2 pkg prefix armv7_bringup)/share/armv7_bringup/urdf/armv7_fake.ros2_control.xacro
+            ros2_control_xacro:=$(ros2 pkg prefix armv7_bringup)/share/armv7_bringup/urdf/armv7_fake.ros2_control.xacro \
+            ee_xacro:=$(ros2 pkg prefix armv7_ee_dummy_gripper)/share/armv7_ee_dummy_gripper/urdf/dummy_gripper.urdf.xacro
 -->
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="armv7">
+
     <xacro:arg name="initial_positions_file"
                default="$(find armv7_moveit_config)/config/initial_positions.yaml" />
-    <xacro:arg name="ros2_control_xacro" default="" />
+    <xacro:arg name="ros2_control_xacro"    default="" />
+    <xacro:arg name="ee_xacro"              default="" />
+    <xacro:arg name="ee_ros2_control_xacro" default="" />
+    <xacro:arg name="ee_parent"             default="link7" />
 
     <xacro:include filename="$(find armv7_description)/urdf/armv7.urdf" />
 
+    <!-- End-effector geometry module (optional) -->
+    <xacro:if value="${'$(arg ee_xacro)' != ''}">
+        <xacro:include filename="$(arg ee_xacro)" />
+        <xacro:armv7_ee parent="$(arg ee_parent)" />
+    </xacro:if>
+
+    <!-- Arm ros2_control hardware (optional) -->
     <xacro:if value="${'$(arg ros2_control_xacro)' != ''}">
         <xacro:include filename="$(arg ros2_control_xacro)" />
-        <xacro:armv7_ros2_control name="armv7" initial_positions_file="$(arg initial_positions_file)" />
+        <xacro:armv7_ros2_control name="armv7"
+                                  initial_positions_file="$(arg initial_positions_file)" />
+
+        <!-- End-effector ros2_control — only when the arm hardware is also
+             active. The EE xacro must define macro `armv7_ee_ros2_control`. -->
+        <xacro:if value="${'$(arg ee_ros2_control_xacro)' != ''}">
+            <xacro:include filename="$(arg ee_ros2_control_xacro)" />
+            <xacro:armv7_ee_ros2_control />
+        </xacro:if>
     </xacro:if>
 </robot>

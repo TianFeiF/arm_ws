@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>armv7_eyehand</name>
+  <version>0.1.0</version>
+  <description>Hand-eye camera template for armv7. Provides a xacro macro that mounts a RealSense (or generic USB) camera onto a designated link, plus a TF publisher that consumes hand-eye calibration results from easy_handeye2.</description>
+  <author>TianFeiF</author>
+  <maintainer email="chunyvtian@gmail.com">TianFeiF</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>armv7_description</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>xacro</exec_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

@@ -1,0 +1,61 @@
+<?xml version="1.0"?>
+<!--
+  Mounts an Intel RealSense D435 on a designated parent link with a
+  configurable mount offset. Replace with `xacro:include` of the official
+  realsense2_description if it is available — that has accurate optical
+  frames. For now this defines just `<camera_name>_link` plus the optical
+  frame so MoveIt can see the camera body and TF chain works end-to-end.
+
+  Usage:
+
+      <xacro:include filename="$(find armv7_eyehand)/urdf/realsense_d435.urdf.xacro" />
+      <xacro:realsense_mount parent="ee_base"
+                             camera_name="d435"
+                             xyz="0.0 0.06 0.02"
+                             rpy="0 0 0" />
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:macro name="realsense_mount" params="parent camera_name xyz rpy">
+
+    <!-- physical camera body -->
+    <link name="${camera_name}_link">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0" />
+        <geometry><box size="0.090 0.025 0.025" /></geometry>
+        <material name="realsense_black"><color rgba="0.1 0.1 0.1 1.0" /></material>
+      </visual>
+      <collision>
+        <geometry><box size="0.090 0.025 0.025" /></geometry>
+      </collision>
+      <inertial>
+        <mass value="0.072" />
+        <inertia ixx="1e-5" ixy="0" ixz="0" iyy="1e-5" iyz="0" izz="1e-5" />
+      </inertial>
+    </link>
+
+    <joint name="${camera_name}_mount_joint" type="fixed">
+      <parent link="${parent}" />
+      <child  link="${camera_name}_link" />
+      <origin xyz="${xyz}" rpy="${rpy}" />
+    </joint>
+
+    <!-- color optical frame -->
+    <link name="${camera_name}_color_optical_frame" />
+    <joint name="${camera_name}_color_optical_joint" type="fixed">
+      <parent link="${camera_name}_link" />
+      <child  link="${camera_name}_color_optical_frame" />
+      <origin xyz="0.012 0.0 0.012" rpy="${-pi/2} 0 ${-pi/2}" />
+    </joint>
+
+    <!-- depth optical frame (offset from color baseline ~0 mm on D435) -->
+    <link name="${camera_name}_depth_optical_frame" />
+    <joint name="${camera_name}_depth_optical_joint" type="fixed">
+      <parent link="${camera_name}_link" />
+      <child  link="${camera_name}_depth_optical_frame" />
+      <origin xyz="0.012 0.015 0.012" rpy="${-pi/2} 0 ${-pi/2}" />
+    </joint>
+
+  </xacro:macro>
+
+</robot>

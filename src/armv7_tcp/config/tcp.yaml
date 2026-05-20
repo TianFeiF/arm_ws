@@ -1,0 +1,26 @@
+# Default TCP offset + payload. Override at runtime with:
+#   ros2 param set /tcp_publisher_node tcp_offset_xyz [0.0, 0.0, 0.15]
+#   ros2 param set /tcp_publisher_node payload_mass 0.50
+
+tcp_publisher_node:
+  ros__parameters:
+    # Parent link to which the TCP is rigidly attached. For a bare arm this is
+    # link7; if you load a gripper xacro that defines `ee_base`, point this
+    # at `ee_base` instead.
+    parent_frame:      link7
+    tcp_frame:         tcp
+
+    # Pose of TCP in parent_frame. 6 numbers: [x, y, z, roll, pitch, yaw].
+    # Default puts TCP 15 cm down the tool axis (z+).
+    tcp_offset_xyz:    [0.0, 0.0, 0.15]
+    tcp_offset_rpy:    [0.0, 0.0, 0.0]
+
+    # Publish rate of the TF (Hz).
+    publish_rate:      50.0
+
+    # Payload — used by armv7_dyn_ident in Phase 4 to add a virtual mass to
+    # the dynamic model. For now we just publish it on /armv7/payload so
+    # downstream consumers can pick it up later.
+    payload_mass:      0.0     # kg
+    payload_com:       [0.0, 0.0, 0.0]   # m, in tcp_frame
+    payload_inertia:   [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # ixx, iyy, izz, ixy, ixz, iyz

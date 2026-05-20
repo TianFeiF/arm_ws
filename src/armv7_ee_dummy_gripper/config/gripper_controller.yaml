@@ -1,0 +1,17 @@
+# Spawn a joint_trajectory_controller for the single finger joint, plus
+# a position interface for "open" / "close" commands.
+#
+# Loaded by arm.launch.py when use_gripper:=true.
+
+controller_manager:
+  ros__parameters:
+    update_rate: 200  # match arm controller
+
+    ee_gripper_controller:
+      type: position_controllers/JointGroupPositionController
+
+ee_gripper_controller:
+  ros__parameters:
+    joints:
+      - ee_finger_left_joint
+    interface_name: position

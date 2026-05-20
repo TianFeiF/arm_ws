@@ -43,13 +43,40 @@ def _ros2_control_xacro(use_fake_hardware: str) -> str:
     return str(get_package_share_path('armv7_bringup') / 'urdf' / name)
 
 
-def _build_moveit_config(ros2_control_xacro_path: str):
+def _ee_paths(ee: str):
+    """Resolve --ee shortcut to (geometry_xacro, ros2_control_xacro, controllers_yaml).
+
+    For a bare arm all three are ''. For 'dummy_gripper' the built-in package
+    paths are returned. For a custom EE you pass an explicit path to the
+    geometry xacro; the ros2_control + controller yaml are left empty (wire
+    them yourself).
+    """
+    if ee in ('', 'none', 'None'):
+        return '', '', ''
+    if ee == 'dummy_gripper':
+        share = get_package_share_path('armv7_ee_dummy_gripper')
+        return (
+            str(share / 'urdf' / 'dummy_gripper.urdf.xacro'),
+            str(share / 'urdf' / 'dummy_gripper.ros2_control.xacro'),
+            str(share / 'config' / 'gripper_controller.yaml'),
+        )
+    # treat as explicit geometry-xacro path; no controller wired
+    return ee, '', ''
+
+
+def _build_moveit_config(ros2_control_xacro_path: str,
+                         ee_xacro_path: str,
+                         ee_ros2_control_xacro_path: str):
     urdf_xacro = str(get_package_share_path('armv7_description') / 'urdf' / 'armv7.urdf.xacro')
     return (
         MoveItConfigsBuilder('armv7', package_name='armv7_moveit_config')
         .robot_description(
             file_path=urdf_xacro,
-            mappings={'ros2_control_xacro': ros2_control_xacro_path},
+            mappings={
+                'ros2_control_xacro':    ros2_control_xacro_path,
+                'ee_xacro':              ee_xacro_path,
+                'ee_ros2_control_xacro': ee_ros2_control_xacro_path,
+            },
         )
         .to_moveit_configs()
     )
@@ -62,8 +89,16 @@ def _setup(context):
     use_db = LaunchConfiguration('db').perform(context)
     use_safety = LaunchConfiguration('use_safety').perform(context)
     use_diagnostics = LaunchConfiguration('use_diagnostics').perform(context)
+    use_tcp = LaunchConfiguration('use_tcp').perform(context)
+    ee = LaunchConfiguration('ee').perform(context)
 
-    moveit_config = _build_moveit_config(_ros2_control_xacro(use_fake_hardware))
+    ee_geom_xacro, ee_rc_xacro, ee_controllers_yaml = _ee_paths(ee)
+
+    moveit_config = _build_moveit_config(
+        _ros2_control_xacro(use_fake_hardware),
+        ee_geom_xacro,
+        ee_rc_xacro,
+    )
 
     actions = []
 
@@ -85,11 +120,14 @@ def _setup(context):
     # ros2_control_node — wait 5 s for MoveIt to settle. SCHED_FIFO 99 if use_rt=true.
     bringup_share = get_package_share_path('armv7_bringup')
     controllers_yaml = str(bringup_share / 'config' / 'ros2_controllers.yaml')
+    cm_params = [moveit_config.robot_description, controllers_yaml]
+    if ee_controllers_yaml:
+        cm_params.append(ee_controllers_yaml)   # adds ee_gripper_controller decl
     rt_prefix = ['chrt -f 99'] if use_rt == 'true' else []
     ros2_control_node = Node(
         package='controller_manager',
         executable='ros2_control_node',
-        parameters=[moveit_config.robot_description, controllers_yaml],
+        parameters=cm_params,
         prefix=rt_prefix,
     )
     actions.append(TimerAction(period=5.0, actions=[ros2_control_node]))
@@ -127,6 +165,24 @@ def _setup(context):
         OnProcessExit(target_action=jsb_spawner, on_exit=[pgc_spawner])
     ))
 
+    # Gripper controller — chained after plan_group_controller so the same
+    # serial-spawn discipline holds. Only when an EE with a controller yaml
+    # was selected (e.g. ee:=dummy_gripper).
+    if ee_controllers_yaml:
+        ee_spawner = Node(
+            package='controller_manager',
+            executable='spawner',
+            arguments=[
+                'ee_gripper_controller',
+                '--controller-manager', '/controller_manager',
+                '--controller-manager-timeout', '30',
+            ],
+            output='screen',
+        )
+        actions.append(RegisterEventHandler(
+            OnProcessExit(target_action=pgc_spawner, on_exit=[ee_spawner])
+        ))
+
     # Safety layer (workspace bbox + E-Stop) — start after controllers are up.
     if use_safety == 'true':
         safety_share = get_package_share_path('armv7_safety')
@@ -139,6 +195,13 @@ def _setup(context):
         diag_share = get_package_share_path('armv7_diagnostics')
         actions.append(TimerAction(period=8.0, actions=[IncludeLaunchDescription(
             PythonLaunchDescriptionSource(str(diag_share / 'launch' / 'diagnostics.launch.py'))
+        )]))
+
+    # Hot-reloadable TCP frame + payload (Phase 3 W3.5).
+    if use_tcp == 'true':
+        tcp_share = get_package_share_path('armv7_tcp')
+        actions.append(TimerAction(period=8.0, actions=[IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(str(tcp_share / 'launch' / 'tcp.launch.py'))
         )]))
 
     return actions
@@ -158,5 +221,12 @@ def generate_launch_description():
                               description='Bring up armv7_safety (workspace bbox + E-Stop).'),
         DeclareLaunchArgument('use_diagnostics', default_value='true',
                               description='Bring up armv7_diagnostics (/diagnostics aggregator).'),
+        DeclareLaunchArgument('use_tcp', default_value='true',
+                              description='Bring up armv7_tcp (TCP offset + payload publisher).'),
+        DeclareLaunchArgument(
+            'ee', default_value='',
+            description='End-effector to attach to link7. Either an empty string '
+                        '(no EE), the shortcut "dummy_gripper", or an absolute path '
+                        'to a *.urdf.xacro that defines macro `armv7_ee parent=...`.'),
         OpaqueFunction(function=_setup),
     ])
