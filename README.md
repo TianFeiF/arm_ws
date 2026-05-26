@@ -16,17 +16,19 @@
 
 | 包 | 作用 |
 |---|---|
-| [`armv7_description`](src/armv7_description) | URDF、网格模型、可视化与 Gazebo 启动 |
-| [`armv7_moveit_config`](src/armv7_moveit_config) | SRDF、运动规划器配置、MoveIt 2 子启动文件 |
-| [`armv7_bringup`](src/armv7_bringup) | ros2_control 硬件 xacro(fake / EtherCAT 两种)、EtherCAT 从站配置、统一入口 `arm.launch.py` |
-| [`armv7_safety`](src/armv7_safety) | 笛卡尔工作空间安全检测 + 软件 E-Stop |
-| [`armv7_diagnostics`](src/armv7_diagnostics) | 关节健康度聚合,发布到 `/diagnostics` |
-| [`armv7_py`](src/armv7_py) | Python 用户 API(`Armv7Client` — move_to_joint / jog / get_tcp_pose / stop) |
-| [`armv7_cpp_api`](src/armv7_cpp_api) | C++ 用户 API(同 5 个方法,基于 rclcpp_action) |
-| [`armv7_examples`](src/armv7_examples) | 示例脚本:`hello_world` / `teach_playback` / `pose_grid` / `pick_and_place` |
-| [`armv7_ee_dummy_gripper`](src/armv7_ee_dummy_gripper) | 示范末端执行器:二指夹爪 xacro + mock ros2_control 模板 |
-| [`armv7_tcp`](src/armv7_tcp) | 热加载 TCP TF + `/armv7/payload`,运行时改 param 立即生效 |
-| [`armv7_eyehand`](src/armv7_eyehand) | RealSense D435 mount xacro + 手眼标定结果静态 TF launch |
+| [`armv7_description`](src/armv7_description/README.md) | URDF、网格模型、可视化与 Gazebo 启动 |
+| [`armv7_moveit_config`](src/armv7_moveit_config/README.md) | SRDF、运动规划器配置、MoveIt 2 子启动文件 |
+| [`armv7_bringup`](src/armv7_bringup/README.md) | ros2_control 硬件 xacro(fake / EtherCAT 两种)、EtherCAT 从站配置、统一入口 `arm.launch.py` |
+| [`armv7_safety`](src/armv7_safety/README.md) | 笛卡尔工作空间安全检测 + 软件 E-Stop |
+| [`armv7_diagnostics`](src/armv7_diagnostics/README.md) | 关节健康度聚合,发布到 `/diagnostics` |
+| [`armv7_py`](src/armv7_py/README.md) | Python 用户 API(`Armv7Client` — move_to_joint / jog / get_tcp_pose / stop) |
+| [`armv7_cpp_api`](src/armv7_cpp_api/README.md) | C++ 用户 API(同 5 个方法,基于 rclcpp_action) |
+| [`armv7_examples`](src/armv7_examples/README.md) | 示例脚本:`hello_world` / `teach_playback` / `pose_grid` / `pick_and_place` |
+| [`armv7_ee_dummy_gripper`](src/armv7_ee_dummy_gripper/README.md) | 示范末端执行器:二指夹爪 xacro + mock ros2_control 模板 |
+| [`armv7_tcp`](src/armv7_tcp/README.md) | 热加载 TCP TF + `/armv7/payload`,运行时改 param 立即生效 |
+| [`armv7_eyehand`](src/armv7_eyehand/README.md) | RealSense D435 mount xacro + 手眼标定结果静态 TF launch |
+| [`armv7_dyn_ident`](src/armv7_dyn_ident/README.md) | 动力学辨识:重力符号模型 + 静态位姿采集 `collect` + 离线辨识 `identify` |
+| [`armv7_zero_force_controller`](src/armv7_zero_force_controller/README.md) | 重力补偿 / 自由拖动 C++ 控制器(KDL,CST 力矩模式) |
 | [`ethercat_driver_ros2/`](src/ethercat_driver_ros2) | ICube ethercat_driver_ros2 的内嵌副本,改用 `pkg-config` 自动定位 IgH master |
 
 ## 快速开始
@@ -185,7 +187,8 @@ ros2 param set /tcp_publisher_node payload_mass  0.5
 - [docs/quickstart.md](docs/quickstart.md) — 启动后如何让机械臂动起来。
 - [docs/testing.md](docs/testing.md) — 标准功能测试手册(A/B/C 三档,核心 + 安全 + 诊断)。
 - [docs/testing_phase3.md](docs/testing_phase3.md) — Phase 3 测试手册(末端执行器 + 传感器 + TCP)。
-- [docs/troubleshooting.md](docs/troubleshooting.md) — 17 个常见报错的诊断与修复。
+- [docs/testing_phase4.md](docs/testing_phase4.md) — Phase 4 测试手册(动力学辨识 + 重力补偿 / 自由拖动)。
+- [docs/troubleshooting.md](docs/troubleshooting.md) — 21 个常见报错的诊断与修复。
 - [docs/integration/ft_sensor.md](docs/integration/ft_sensor.md) — F/T 传感器(EtherCAT 与网口两种)集成指南。
 - [GITHUB_UPLOAD_GUIDE.md](GITHUB_UPLOAD_GUIDE.md) — 把仓库推到 GitHub 的步骤。
 - [SCRIPT_USAGE.md](SCRIPT_USAGE.md) — `init_and_push_to_github.sh` 使用教程。

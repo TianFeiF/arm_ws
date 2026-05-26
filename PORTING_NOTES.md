@@ -158,6 +158,13 @@ ls -l /dev/EtherCAT0    # crw-rw---- root ethercat
 ### 网卡占用
 EtherCAT 接管的网卡不能同时被 NetworkManager 管理,否则会产生中断,导致丢帧。在 NetworkManager 配置里把对应接口 `unmanaged=true`,或直接把网线接在专用网卡。
 
+### 本地补丁:防止电机进 OP 冲向 0 点(关键安全项)
+`src/ethercat_driver_ros2/ethercat_generic_plugins/ethercat_generic_cia402_drive/src/generic_ec_cia402_drive.cpp` 已打本地补丁:把"用当前位置 seed 目标位置默认值"的判定从 `mode_of_operation_display_ != MODE_NO_MODE` 改成 `!std::isnan(last_position_)`。
+
+原因:EYOU 伺服在进入 OPERATION_ENABLED 之前 `0x6061`(mode display)一直报 0,导致上游代码不 seed 目标位置,`0x607a` 保持上电初值 0,CSP 模式下电机冲向零点。详见 [docs/troubleshooting.md § joints-jump-to-zero](docs/troubleshooting.md#joints-jump-to-zero)。
+
+> 这是对 vendored `ethercat_driver_ros2` 的本地修改。如果将来 `git pull` 上游覆盖了它,务必重新打补丁。
+
 ### DC Sync 必须启用(关键)
 [EUPH11_config.yaml](src/armv7_bringup/config/EUPH11_config.yaml)、[EUPH14_config.yaml](src/armv7_bringup/config/EUPH14_config.yaml)、[EUPH17_config.yaml](src/armv7_bringup/config/EUPH17_config.yaml) 三份从站配置文件的第 4 行:
 ```yaml

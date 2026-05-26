@@ -388,7 +388,7 @@
     <parent
       link="link5" />
     <child
-      link="link6" />s
+      link="link6" />
     <axis
       xyz="0 0 1" />
     <limit

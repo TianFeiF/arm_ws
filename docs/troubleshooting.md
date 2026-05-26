@@ -21,6 +21,7 @@ Issues encountered during porting / first-deployment, each with diagnosis and fi
 | 15 | `/safety/bbox_state` topic empty but `workspace_bbox_node` is running | [bbox-tf-unavailable](#bbox-tf-unavailable) |
 | 16 | `hello_world` / `teach_playback` exits with `follow_joint_trajectory action server not available` | [trajectory-action-missing](#trajectory-action-missing) |
 | 17 | `RTPS_TRANSPORT_SHM Error: Failed init_port ... open_and_lock_file failed` flooding the log | [dds-shm-leak](#dds-shm-leak) |
+| 18 | 真机:电机一进入 OP 就突然冲向 0 点,而不是保持当前位置 | [joints-jump-to-zero](#joints-jump-to-zero) |
 | 18 | dummy gripper command accepted but finger never moves in sim | [gripper-mock-no-mirror](#gripper-mock-no-mirror) |
 
 ---
@@ -504,6 +505,115 @@ they belong, and MoveIt / collision checking reads them there.
 
 This is already fixed in
 [src/armv7_ee_dummy_gripper/urdf/dummy_gripper.ros2_control.xacro](../src/armv7_ee_dummy_gripper/urdf/dummy_gripper.ros2_control.xacro).
+
+---
+
+## free-drive-arm-falls
+
+**Full symptom:** in `free_drive.launch.py` (CST / torque mode) the arm sags or drops —
+either right after the drives enable, or the moment you toggle the controller off.
+
+**Cause:** this is expected. In torque mode the drives provide **zero** holding torque
+unless `gravity_compensation_controller` is *active AND enabled*. The controller starts
+**disabled** on purpose (`enable_at_start: false`), and disabling it commands 0 torque.
+
+**Fix / procedure:** physically support the arm (or use a brake) before launching, and
+before disabling. Enable only once you are clear of the arm:
+```bash
+ros2 service call /gravity_compensation_controller/enable std_srvs/srv/SetBool "{data: true}"
+```
+The `ramp_in_time` (default 2 s) eases torque in so it does not jump. See
+[docs/testing_phase4.md § 4.2.2](testing_phase4.md) for the full safety sequence.
+
+---
+
+## free-drive-drift-direction
+
+**Full symptom:** with gravity compensation enabled the arm slowly drifts in one
+direction (sinks, or floats upward) instead of staying put.
+
+**Cause / fix:**
+- Sinks (gravity under-compensated): the model mass/CoM is too light. Run
+  `armv7_dyn_ident` and pass `identified_params:=...`, or nudge `gravity_scale` up
+  toward 1.0.
+- Floats up (over-compensated): lower `gravity_scale` (start at 0.8 — slightly heavy is
+  always safer than floating).
+- One joint pushes the *wrong* way: the drive's torque sign is opposite the URDF axis on
+  that joint. Re-run `identify` with `joint_sign` flipped for it (e.g.
+  `-p joint_sign:="[1,1,-1,1,1,1,1]"`); the controller commands in the same effort units
+  it was identified in, so the fix carries through.
+- Residual stiction drift within ~10°/s is normal for v0.1 (Coulomb friction is not
+  compensated). Add a little `damping` to make it feel smoother.
+
+---
+
+## free-drive-no-robot-description
+
+**Full symptom:** `gravity_compensation_controller` fails to configure with
+`'robot_description' is empty; the controller_manager must provide it`.
+
+**Cause:** the controller builds its KDL model from the `robot_description` the
+controller_manager forwards. If the `ros2_control_node` was started without a
+`robot_description` parameter (e.g. a hand-rolled launch), the controller has nothing to
+parse.
+
+**Fix:** start free-drive via `armv7_zero_force_controller free_drive.launch.py`, which
+passes `robot_description` to the `ros2_control_node`. If you wrote your own launch, make
+sure the `ros2_control_node` `parameters=[...]` includes the rendered
+`{'robot_description': <urdf>}` dict, exactly as `arm.launch.py` does.
+
+---
+
+## joints-jump-to-zero
+
+**Full symptom (REAL hardware only):** the instant the EtherCAT slaves reach OP
+state during `arm.launch.py` startup, the joints snap to the 0 position at full
+speed instead of holding where they were. Dangerous — the arm can swing hard.
+
+**Cause:** CSP mode (`mode_of_operation: 8`) makes the drive follow target
+position `0x607a` every cycle. Before any controller command arrives, the
+target-position command interface is `NaN`, so `ethercat_generic_cia402_drive`
+is supposed to write the *current actual position* as the default. The upstream
+code only did that once the drive reported a non-zero `0x6061` (mode-of-operation
+display). EYOU servos report `0x6061 = 0` until they reach OPERATION_ENABLED, so
+in that window nothing was written and `0x607a` stayed at its power-on value of
+**0** → the joint drove to zero.
+
+**Fix (already applied in this repo)** — two coordinated changes in
+[generic_ec_cia402_drive.cpp](../src/ethercat_driver_ros2/ethercat_generic_plugins/ethercat_generic_cia402_drive/src/generic_ec_cia402_drive.cpp):
+
+1. **Seed earlier.** The target-position default is taken from the current
+   feedback as soon as a valid position has been read (gated on
+   `!std::isnan(last_position_)` instead of on the mode display).
+
+2. **Hold disabled until seeded.** The CiA402 auto state machine is NOT allowed
+   to advance out of SWITCH_ON_DISABLED until `last_position_` is valid. This
+   closes the one-cycle window where the drive could reach OPERATION_ENABLED on
+   the same cycle that `0x607a` was still 0 — the cause of the residual
+   "twitch toward zero" that remained after fix #1 alone.
+
+Together: the drive stays disabled (and therefore ignores `0x607a`) for the one
+cycle where the seed lags, then enables only after the target has tracked the
+actual pose for several cycles.
+
+Rebuild after pulling:
+```bash
+colcon build --packages-select ethercat_generic_cia402_drive
+```
+
+**Verify on hardware (keep your hand on the hardware E-Stop):**
+1. Power-cycle the drives (cold start) so they begin in SWITCH_ON_DISABLED.
+2. `ros2 launch armv7_bringup arm.launch.py`
+3. Watch the arm at OP entry — it must stay put, not move to zero.
+4. `ros2 topic echo /joint_states --once` right after startup — positions should
+   match the physical pose, not all-zeros.
+
+**Residual caveat — warm restart:** if you Ctrl-C the launch and immediately
+relaunch WITHOUT power-cycling, the drives may still be in OPERATION_ENABLED.
+There can be a single ~10 ms cycle where `0x607a` is still 0 before feedback
+propagates. For safety, **power-cycle (cold start) the drives between runs**, or
+ensure a hardware E-Stop is within reach. A full clean-shutdown path that
+disables the CiA402 state machine on `on_deactivate` is a v0.2 item.
 
 ---
 

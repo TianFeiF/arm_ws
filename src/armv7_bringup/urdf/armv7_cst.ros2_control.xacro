@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<!--
+  EtherCAT ros2_control fragment for TORQUE (CiA-402 CST, mode 10) operation.
+
+  Identical wiring to armv7_ethercat.ros2_control.xacro but each joint also
+  exposes an `effort` command interface and the drives run in CST mode via the
+  *_cst_config.yaml slave configs. Used by armv7_zero_force_controller for
+  gravity-compensation / free-drive.
+
+  A drive can only be in ONE mode at a time, so this is mutually exclusive with
+  the position-mode arm.launch.py (MoveIt). Bring the arm up with
+  armv7_zero_force_controller free_drive.launch.py instead.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <xacro:macro name="armv7_ros2_control" params="name initial_positions_file">
+
+        <ros2_control name="${name}_ethercat" type="system">
+            <hardware>
+                <plugin>ethercat_driver/EthercatDriver</plugin>
+                <param name="master_id">0</param>
+                <param name="control_frequency">100</param>
+            </hardware>
+
+            <xacro:macro name="cst_joint" params="jname slave_pos config">
+                <joint name="${jname}">
+                    <command_interface name="position"/>
+                    <command_interface name="velocity"/>
+                    <command_interface name="effort"/>
+                    <command_interface name="reset_fault"/>
+                    <state_interface name="position"/>
+                    <state_interface name="velocity"/>
+                    <state_interface name="effort"/>
+                    <ec_module name="EUmotor">
+                      <plugin>ethercat_generic_plugins/EcCiA402Drive</plugin>
+                      <param name="alias">0</param>
+                      <param name="position">${slave_pos}</param>
+                      <param name="mode_of_operation">10</param>
+                      <param name="slave_config">$(find armv7_bringup)/config/${config}</param>
+                    </ec_module>
+                </joint>
+            </xacro:macro>
+
+            <xacro:cst_joint jname="joint1" slave_pos="0" config="EUPH17_cst_config.yaml"/>
+            <xacro:cst_joint jname="joint2" slave_pos="1" config="EUPH17_cst_config.yaml"/>
+            <xacro:cst_joint jname="joint3" slave_pos="2" config="EUPH14_cst_config.yaml"/>
+            <xacro:cst_joint jname="joint4" slave_pos="3" config="EUPH14_cst_config.yaml"/>
+            <xacro:cst_joint jname="joint5" slave_pos="4" config="EUPH11_cst_config.yaml"/>
+            <xacro:cst_joint jname="joint6" slave_pos="5" config="EUPH11_cst_config.yaml"/>
+            <xacro:cst_joint jname="joint7" slave_pos="6" config="EUPH11_cst_config.yaml"/>
+        </ros2_control>
+    </xacro:macro>
+</robot>

@@ -1,0 +1,14 @@
+# Static-pose collection settings for `armv7_dyn_ident collect`.
+# The arm is driven (in the existing position mode) to n_poses random
+# configurations inside the joint limits, settles, then records (q, tau).
+armv7_dyn_collect:
+  ros__parameters:
+    joints: [joint1, joint2, joint3, joint4, joint5, joint6, joint7]
+    action_name: /plan_group_controller/follow_joint_trajectory
+    output_csv: /tmp/armv7_gravity.csv
+    n_poses: 60          # more poses -> better conditioning; ~60 is plenty for gravity
+    margin: 0.12         # stay this fraction of the range away from each limit
+    seed: 0              # reproducible pose set
+    move_time: 4.0       # seconds to drive to each pose (slow = safe)
+    settle_time: 1.5     # seconds to wait after arrival before sampling
+    samples_per_pose: 40 # /joint_states messages averaged per pose

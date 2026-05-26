@@ -1,0 +1,34 @@
+identified_dynamics:
+  joints: [joint1, joint2, joint3, joint4, joint5, joint6, joint7]
+  gravity_axis: [0.0, 0.0, -1.0]
+  links:
+  - name: link1
+    mass: 1.2668
+    com: [-0.004332, 4.5e-05, 0.19994]
+  - name: link2
+    mass: 1.400499
+    com: [-1.5e-05, -0.101895, 0.000109]
+  - name: link3
+    mass: 1.226979
+    com: [-0.004049, -0.001487, 0.08564]
+  - name: link4
+    mass: 0.96885
+    com: [3.7e-05, -0.100417, -0.028025]
+  - name: link5
+    mass: 0.523464
+    com: [0.003554, 4.8e-05, 0.049837]
+  - name: link6
+    mass: 0.59358
+    com: [-2.0e-06, 0.070859, -0.036187]
+  - name: link7
+    mass: 0.007555
+    com: [0.0, -0.0, -0.052729]
+  meta:
+    n_samples: 0
+    fix_masses: true
+    reg: 0.0
+    rms_before_nm: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    rms_after_nm: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    regressor_cond: 0.0
+    source_csv: (urdf priors, no data)
+    date: '2026-05-20'

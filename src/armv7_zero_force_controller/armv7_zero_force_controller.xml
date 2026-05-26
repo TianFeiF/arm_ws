@@ -1,0 +1,9 @@
+<library path="armv7_zero_force_controller">
+  <class name="armv7_zero_force_controller/GravityCompensationController"
+         type="armv7_zero_force_controller::GravityCompensationController"
+         base_class_type="controller_interface::ControllerInterface">
+    <description>
+      Holds the arm against gravity on the effort interfaces (free-drive / zero-force).
+    </description>
+  </class>
+</library>

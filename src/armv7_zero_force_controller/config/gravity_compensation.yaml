@@ -1,0 +1,44 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 200
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+    gravity_compensation_controller:
+      type: armv7_zero_force_controller/GravityCompensationController
+
+gravity_compensation_controller:
+  ros__parameters:
+    joints: [joint1, joint2, joint3, joint4, joint5, joint6, joint7]
+    root_link: base_link
+    tip_link: link7
+
+    # Fraction of gravity to cancel. 1.0 = weightless. Start lower (e.g. 0.8)
+    # when tuning so the arm stays slightly heavy and never drifts upward.
+    gravity_scale: 0.8
+
+    # Torque linearly ramps 0 -> full over this many seconds after activation,
+    # so the arm does not jump when the controller starts.
+    ramp_in_time: 2.0
+
+    # Safety cutoff: if a joint moves faster than this (rad/s) its torque is
+    # zeroed for that cycle (runaway protection).
+    velocity_limit: 2.0
+
+    gravity_vector: [0.0, 0.0, -9.80665]
+
+    # Per-joint torque clamp (Nm). Keep at/below the URDF effort limits
+    # (38/38/14/14/6.8/6.8/6.8). Gravity-hold torques are far smaller; this is
+    # a hard safety ceiling.
+    max_torque: [30.0, 30.0, 12.0, 12.0, 5.5, 5.5, 5.5]
+
+    # Viscous damping -d*qd (Nm*s/rad) added to each joint. Small values make
+    # free-drive feel smooth and suppress oscillation; 0 = pure gravity comp.
+    damping: [0.5, 0.5, 0.3, 0.3, 0.2, 0.2, 0.2]
+
+    # Start with torque OFF; call `ros2 service call /gravity_compensation_controller/enable
+    # std_srvs/srv/SetBool "{data: true}"` once you are ready and clear of the arm.
+    enable_at_start: false
+
+    # Optional: refine the model with identified mass + CoM. Leave unset to use
+    # the URDF inertials. Produce this file with armv7_dyn_ident.
+    # identified_params_file: /abs/path/to/identified_params.yaml
