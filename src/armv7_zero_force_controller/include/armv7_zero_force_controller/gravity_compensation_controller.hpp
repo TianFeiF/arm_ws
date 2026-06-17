@@ -59,9 +59,12 @@ private:
   double gravity_scale_{1.0};
   double ramp_in_time_{2.0};
   double velocity_limit_{2.0};
+  double coulomb_velocity_eps_{0.05};
   std::vector<double> gravity_vec_{0.0, 0.0, -9.80665};
   std::vector<double> max_torque_;
   std::vector<double> damping_;
+  std::vector<double> coulomb_friction_;
+  std::vector<double> viscous_friction_;
 
   KDL::Chain chain_;
   std::unique_ptr<KDL::ChainDynParam> dyn_param_;

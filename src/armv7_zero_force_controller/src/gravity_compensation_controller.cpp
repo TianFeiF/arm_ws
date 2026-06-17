@@ -35,6 +35,9 @@ controller_interface::CallbackReturn GravityCompensationController::on_init()
     auto_declare<std::vector<double>>("gravity_vector", {0.0, 0.0, -9.80665});
     auto_declare<std::vector<double>>("max_torque", {});
     auto_declare<std::vector<double>>("damping", {});
+    auto_declare<std::vector<double>>("coulomb_friction", {});
+    auto_declare<std::vector<double>>("viscous_friction", {});
+    auto_declare<double>("coulomb_velocity_eps", 0.05);
     auto_declare<bool>("enable_at_start", false);
   } catch (const std::exception & e) {
     fprintf(stderr, "on_init exception: %s\n", e.what());
@@ -58,6 +61,9 @@ controller_interface::CallbackReturn GravityCompensationController::on_configure
   gravity_vec_ = node->get_parameter("gravity_vector").as_double_array();
   max_torque_ = node->get_parameter("max_torque").as_double_array();
   damping_ = node->get_parameter("damping").as_double_array();
+  coulomb_friction_ = node->get_parameter("coulomb_friction").as_double_array();
+  viscous_friction_ = node->get_parameter("viscous_friction").as_double_array();
+  coulomb_velocity_eps_ = node->get_parameter("coulomb_velocity_eps").as_double();
   enabled_.store(node->get_parameter("enable_at_start").as_bool());
 
   if (joints_.empty()) {
@@ -80,6 +86,24 @@ controller_interface::CallbackReturn GravityCompensationController::on_configure
   }
   if (damping_.size() != n) {
     RCLCPP_ERROR(node->get_logger(), "'damping' must have %zu entries", n);
+    return controller_interface::CallbackReturn::ERROR;
+  }
+  if (coulomb_friction_.empty()) {
+    coulomb_friction_.assign(n, 0.0);
+  }
+  if (coulomb_friction_.size() != n) {
+    RCLCPP_ERROR(node->get_logger(), "'coulomb_friction' must have %zu entries", n);
+    return controller_interface::CallbackReturn::ERROR;
+  }
+  if (viscous_friction_.empty()) {
+    viscous_friction_.assign(n, 0.0);
+  }
+  if (viscous_friction_.size() != n) {
+    RCLCPP_ERROR(node->get_logger(), "'viscous_friction' must have %zu entries", n);
+    return controller_interface::CallbackReturn::ERROR;
+  }
+  if (coulomb_velocity_eps_ <= 0.0) {
+    RCLCPP_ERROR(node->get_logger(), "'coulomb_velocity_eps' must be > 0");
     return controller_interface::CallbackReturn::ERROR;
   }
   if (gravity_vec_.size() != 3) {
@@ -322,7 +346,15 @@ controller_interface::return_type GravityCompensationController::update(
 
   std::vector<double> applied(n, 0.0);
   for (size_t i = 0; i < n; ++i) {
-    double tau = gravity_scale_ * g_torque_(i) - damping_[i] * qd_(i);
+    // Friction compensation pushes torque in the direction the joint is moving,
+    // so an external nudge meets less stiction/drag than from gravity alone.
+    // tanh smooths the sign(qd) discontinuity near zero velocity.
+    const double f_coulomb =
+      coulomb_friction_[i] * std::tanh(qd_(i) / coulomb_velocity_eps_);
+    const double f_viscous = viscous_friction_[i] * qd_(i);
+    double tau = gravity_scale_ * g_torque_(i)
+                 + f_coulomb + f_viscous
+                 - damping_[i] * qd_(i);
     if (std::abs(qd_(i)) > velocity_limit_) {
       tau = 0.0;   // runaway / fast-motion safety cutoff
     }

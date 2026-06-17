@@ -221,11 +221,11 @@ arm_ws/src/
   - [x] W3.6 pick_and_place 示例(用 dummy gripper)
 - [ ] W4: zero_force_controller 骨架 + v0.1.0 release
   - [x] W4.1 armv7_dyn_ident(重力符号模型 + 静态位姿采集 collect + 离线辨识 identify)
-  - [x] W4.2 armv7_zero_force_controller(KDL 重力补偿 C++ 控制器 + CST free-drive 起臂)
-  - [ ] W4.3 armv7_impedance_moveit starter(README + 接口约定)
-  - [ ] W4.4 CHANGELOG.md + RELEASE_NOTES.md
-  - [ ] W4.5 demo 视频 + README 截图
-  - [ ] W4.6 v0.1.0 release(GH release + CI + ghcr 镜像)
+  - [x] W4.2 armv7_zero_force_controller(KDL 重力补偿 + Coulomb/viscous 摩擦补偿 + CST free-drive 起臂)
+  - [x] W4.3 armv7_impedance_moveit starter(README + 接口契约 + TODO,v0.1 不带控制循环)
+  - [x] W4.4 CHANGELOG.md + RELEASE_NOTES.md
+  - [ ] W4.5 demo 视频 + README 截图(由操作者录制)
+  - [ ] W4.6 v0.1.0 release(本地 tag + GH release + ghcr 镜像)
 
 ---
 

@@ -24,6 +24,7 @@ import csv
 import time
 from typing import List, Optional
 
+import numpy as np
 import rclpy
 from rclpy.action import ActionClient
 from rclpy.node import Node
@@ -57,6 +58,15 @@ class CollectNode(Node):
         self.declare_parameter('samples_per_pose', 40)
         self.declare_parameter('urdf', '')              # override; else from description pkg
         self.declare_parameter('poses', [])             # flattened row-major override
+        # Bidirectional sampling: for each target pose, approach it once from
+        # above (target+delta -> target) and once from below (target-delta ->
+        # target), recording both. The pair-average cancels Coulomb friction,
+        # which otherwise sits on the measured torque as a sign(prev q_dot)
+        # offset and dominates joints with low gravity load (notably joint1).
+        # Doubles the run time (~2x); off => single approach (legacy behavior).
+        self.declare_parameter('bidirectional', True)
+        self.declare_parameter('approach_delta', 0.06)  # rad, per-joint pre-offset
+        self.declare_parameter('approach_time', 1.5)    # s, fast intermediate move
 
         self.joints: List[str] = list(
             self.get_parameter('joints').get_parameter_value().string_array_value
@@ -67,11 +77,15 @@ class CollectNode(Node):
         self.move_time = float(self.get_parameter('move_time').value)
         self.settle_time = float(self.get_parameter('settle_time').value)
         self.samples_per_pose = int(self.get_parameter('samples_per_pose').value)
+        self.bidirectional = bool(self.get_parameter('bidirectional').value)
+        self.approach_delta = float(self.get_parameter('approach_delta').value)
+        self.approach_time = float(self.get_parameter('approach_time').value)
 
         self._latest: Optional[JointState] = None
         self.create_subscription(JointState, '/joint_states', self._on_js, 50)
         self._client = ActionClient(self, FollowJointTrajectory, self.action_name)
 
+        self._lower, self._upper = self._joint_limits()
         self.poses = self._resolve_poses()
 
     # -- setup helpers ----------------------------------------------------
@@ -81,8 +95,7 @@ class CollectNode(Node):
             if len(explicit) % self.n != 0:
                 raise ValueError(f'poses length {len(explicit)} not a multiple of {self.n}')
             return [explicit[i:i + self.n] for i in range(0, len(explicit), self.n)]
-        lower, upper = self._joint_limits()
-        return static_poses(lower, upper,
+        return static_poses(self._lower, self._upper,
                             count=int(self.get_parameter('n_poses').value),
                             margin=float(self.get_parameter('margin').value),
                             seed=int(self.get_parameter('seed').value))
@@ -108,14 +121,15 @@ class CollectNode(Node):
             return None
         return [src[idx[j]] for j in self.joints]
 
-    def _send_pose(self, q: List[float]) -> bool:
+    def _send_pose(self, q: List[float], time_to_reach: Optional[float] = None) -> bool:
+        t = self.move_time if time_to_reach is None else float(time_to_reach)
         goal = FollowJointTrajectory.Goal()
         goal.trajectory.joint_names = self.joints
         pt = JointTrajectoryPoint()
         pt.positions = [float(v) for v in q]
         pt.velocities = [0.0] * self.n
-        secs = int(self.move_time)
-        pt.time_from_start = Duration(sec=secs, nanosec=int((self.move_time - secs) * 1e9))
+        secs = int(t)
+        pt.time_from_start = Duration(sec=secs, nanosec=int((t - secs) * 1e9))
         goal.trajectory.points = [pt]
 
         send_future = self._client.send_goal_async(goal)
@@ -152,6 +166,24 @@ class CollectNode(Node):
             return None
         return [v / got for v in q_acc], [v / got for v in tau_acc]
 
+    def _clamp(self, q):
+        return np.clip(np.asarray(q, dtype=float), self._lower, self._upper).tolist()
+
+    def _approach_and_sample(self, pre_pose, target_pose):
+        """Drive to pre_pose (fast), then to target_pose, settle, sample.
+
+        The direction of approach is encoded by which side pre_pose sits on
+        relative to target_pose: kinetic friction switches sign at the final
+        stop, so the recorded torque carries +/- f_c on each joint.
+        """
+        if not self._send_pose(pre_pose, time_to_reach=self.approach_time):
+            return None
+        time.sleep(0.3)
+        if not self._send_pose(target_pose):
+            return None
+        time.sleep(self.settle_time)
+        return self._collect_sample()
+
     def run(self):
         self.get_logger().info(f'waiting for action server {self.action_name} ...')
         if not self._client.wait_for_server(timeout_sec=30.0):
@@ -159,26 +191,54 @@ class CollectNode(Node):
             return
         rows = []
         total = len(self.poses)
+        mode = 'bidirectional' if self.bidirectional else 'single'
+        self.get_logger().info(f'mode: {mode}, {total} target pose(s)')
+
         for i, pose in enumerate(self.poses):
-            self.get_logger().info(f'[{i + 1}/{total}] moving to '
+            self.get_logger().info(f'[{i + 1}/{total}] target = '
                                    + ' '.join(f'{v:+.2f}' for v in pose))
-            if not self._send_pose(pose):
-                self.get_logger().warn('  move failed, skipping pose')
+            if not self.bidirectional:
+                if not self._send_pose(pose):
+                    self.get_logger().warn('  move failed, skipping')
+                    continue
+                time.sleep(self.settle_time)
+                sample = self._collect_sample()
+                if sample is None:
+                    self.get_logger().warn('  no joint_states with effort, skipping')
+                    continue
+                q, tau = sample
+                rows.append(list(q) + list(tau))
+                self.get_logger().info('  tau = ' + ' '.join(f'{v:+.2f}' for v in tau))
                 continue
-            time.sleep(self.settle_time)
-            sample = self._collect_sample()
-            if sample is None:
-                self.get_logger().warn('  no joint_states with effort, skipping')
+
+            # bidirectional: approach from above (target + delta) then below
+            target = np.asarray(pose, dtype=float)
+            d = np.full(self.n, self.approach_delta)
+            high = self._clamp(target + d)
+            low = self._clamp(target - d)
+
+            sample_a = self._approach_and_sample(high, pose)   # last qd < 0
+            sample_b = self._approach_and_sample(low, pose)    # last qd > 0
+            if sample_a is None or sample_b is None:
+                self.get_logger().warn('  one or both approaches failed, skipping')
                 continue
-            q, tau = sample
-            rows.append(list(q) + list(tau))
-            self.get_logger().info('  tau = ' + ' '.join(f'{v:+.2f}' for v in tau))
+            q_a, tau_a = sample_a
+            q_b, tau_b = sample_b
+            rows.append(list(q_a) + list(tau_a))
+            rows.append(list(q_b) + list(tau_b))
+            mean = [(a + b) / 2 for a, b in zip(tau_a, tau_b)]
+            half_diff = [(a - b) / 2 for a, b in zip(tau_a, tau_b)]
+            self.get_logger().info('  tau_avg = ' + ' '.join(f'{v:+.2f}' for v in mean))
+            self.get_logger().info('  est. Coulomb |f_c| ≈ '
+                                   + ' '.join(f'{abs(v):.2f}' for v in half_diff))
 
         if not rows:
             self.get_logger().error('collected 0 samples; nothing written')
             return
         self._write_csv(rows)
-        self.get_logger().info(f'wrote {len(rows)} samples to {self.output_csv}')
+        self.get_logger().info(f'wrote {len(rows)} rows to {self.output_csv}'
+                               + ('  (2 per pose, pair-mean cancels friction)'
+                                  if self.bidirectional else ''))
 
     def _write_csv(self, rows):
         header = [f'q{i + 1}' for i in range(self.n)] + [f'tau{i + 1}' for i in range(self.n)]

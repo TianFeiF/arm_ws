@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>armv7_impedance_moveit</name>
+  <version>0.1.0</version>
+  <description>v0.1 STARTER PACKAGE for 6-DoF Cartesian impedance / admittance control with
+  MoveIt on the armv7 arm. This release ships the *interface contract* (header structs,
+  planned topics / services / params), a README explaining what the v0.2 implementation
+  must do, and a TODO file enumerating the work — but NO control loop yet. The package
+  builds clean so downstream code can compile against the interface today. See README and
+  TODO.md.</description>
+  <maintainer email="chunyvtian@gmail.com">TianFeiF</maintainer>
+  <license>Apache-2.0</license>
+  <author>TianFeiF</author>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>

@@ -28,7 +28,8 @@
 | [`armv7_tcp`](src/armv7_tcp/README.md) | 热加载 TCP TF + `/armv7/payload`,运行时改 param 立即生效 |
 | [`armv7_eyehand`](src/armv7_eyehand/README.md) | RealSense D435 mount xacro + 手眼标定结果静态 TF launch |
 | [`armv7_dyn_ident`](src/armv7_dyn_ident/README.md) | 动力学辨识:重力符号模型 + 静态位姿采集 `collect` + 离线辨识 `identify` |
-| [`armv7_zero_force_controller`](src/armv7_zero_force_controller/README.md) | 重力补偿 / 自由拖动 C++ 控制器(KDL,CST 力矩模式) |
+| [`armv7_zero_force_controller`](src/armv7_zero_force_controller/README.md) | 重力补偿 / 自由拖动 C++ 控制器(KDL,CST 力矩模式;含库仑/粘滞摩擦补偿) |
+| [`armv7_impedance_moveit`](src/armv7_impedance_moveit) | v0.1 starter:6-DoF Cartesian 阻抗/导纳控制接口契约 + README + TODO(v0.2 落实控制循环) |
 | [`ethercat_driver_ros2/`](src/ethercat_driver_ros2) | ICube ethercat_driver_ros2 的内嵌副本,改用 `pkg-config` 自动定位 IgH master |
 
 ## 快速开始
@@ -188,8 +189,10 @@ ros2 param set /tcp_publisher_node payload_mass  0.5
 - [docs/testing.md](docs/testing.md) — 标准功能测试手册(A/B/C 三档,核心 + 安全 + 诊断)。
 - [docs/testing_phase3.md](docs/testing_phase3.md) — Phase 3 测试手册(末端执行器 + 传感器 + TCP)。
 - [docs/testing_phase4.md](docs/testing_phase4.md) — Phase 4 测试手册(动力学辨识 + 重力补偿 / 自由拖动)。
-- [docs/troubleshooting.md](docs/troubleshooting.md) — 21 个常见报错的诊断与修复。
+- [docs/troubleshooting.md](docs/troubleshooting.md) — 22 个常见报错的诊断与修复。
 - [docs/integration/ft_sensor.md](docs/integration/ft_sensor.md) — F/T 传感器(EtherCAT 与网口两种)集成指南。
+- [CHANGELOG.md](CHANGELOG.md) — 按 Keep a Changelog 格式记录每个版本的变更。
+- [RELEASE_NOTES.md](RELEASE_NOTES.md) — 当前发行版的用户向说明(已知限制、升级注意、路线图)。
 - [GITHUB_UPLOAD_GUIDE.md](GITHUB_UPLOAD_GUIDE.md) — 把仓库推到 GitHub 的步骤。
 - [SCRIPT_USAGE.md](SCRIPT_USAGE.md) — `init_and_push_to_github.sh` 使用教程。
 

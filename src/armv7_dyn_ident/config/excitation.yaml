@@ -12,3 +12,12 @@ armv7_dyn_collect:
     move_time: 4.0       # seconds to drive to each pose (slow = safe)
     settle_time: 1.5     # seconds to wait after arrival before sampling
     samples_per_pose: 40 # /joint_states messages averaged per pose
+
+    # Bidirectional sampling: drive to each pose first via target+delta and
+    # again via target-delta, recording both. The pair-mean cancels Coulomb
+    # friction (otherwise it sits on the measured torque as a sign(prev qd)
+    # offset). Run time ~2x. Turn off if you need legacy single-approach.
+    bidirectional: true
+    approach_delta: 0.06        # rad, pre-offset before final approach
+    approach_time: 1.5          # s, intermediate fast move
+

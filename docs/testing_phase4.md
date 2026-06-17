@@ -92,9 +92,17 @@ ros2 run armv7_dyn_ident collect --ros-args \
 
 **实机正式采集**(`use_fake_hardware` 去掉,先确认所有伺服 OP):
 ```bash
-ros2 launch armv7_dyn_ident collect.launch.py    # 默认 60 个位姿,~5 min
+ros2 launch armv7_dyn_ident collect.launch.py    # 默认 60 个位姿 × 双向 ≈ 10 min
 ```
 > ⚠️ 自动生成的随机位姿**未做碰撞检查**。第一次跑务必盯着、手放急停;或用 `-p poses:="[q1..q7, q1..q7, ...]"` 传入自己确认过的安全位姿(行优先展开)。
+
+#### 双向采样(默认开)
+
+每个目标位姿采两次:先从 `q* + δ` 走到 `q*`(进入时 q̇<0),再从 `q* − δ` 走到 `q*`(进入时 q̇>0)。库仑摩擦 `f_c·sign(q̇_prev)` 在两次采样里**符号相反**,LS 拟合时配对自然抵消 → G(q) 更干净。
+
+日志每个位姿会打印一行 `est. Coulomb |f_c| ≈ ...`,正是 `|τ_above − τ_below|/2` 的估计 —— **直接告诉你每个关节有多少摩擦**,后面调控制器摩擦补偿用得上。
+
+关 `bidirectional`(`-p bidirectional:=false`)回到单向采样,数据量减半但摩擦不抵消。
 
 ### 4.1.3 离线辨识(`identify`)
 
@@ -121,6 +129,45 @@ ros2 run armv7_dyn_ident identify --ros-args -p csv:=/tmp/syn.csv -p out:=/tmp/i
 **通过标准**:打印每关节 `urdf -> identified` 的力矩残差,identified 明显更小;写出 `/tmp/identified_params.yaml`(含 `identified_dynamics.links` 的 mass+com、`meta` 的 rms 与样本数)。
 
 实机辨识就是把 `csv:=` 换成 §4.1.2 采集到的真实 CSV。若某关节 effort 读数符号与模型相反,加 `-p joint_sign:="[1,1,-1,1,1,1,1]"` 翻转。
+
+#### 双向采样数据 → 三段输出(关键)
+
+如果 CSV 是双向采集(每个位姿两行),`identify` 自动检测并多打印两段:
+
+```
+per-joint torque RMS residual (Nm)  -- per-sample, includes Coulomb noise:
+  joint1:  urdf   3.602  ->  identified   3.602
+  joint2:  urdf   4.029  ->  identified   3.902
+  ...
+mean: urdf 1.516 -> identified 1.428
+
+bidirectional pairs detected: 60 poses
+per-joint GRAVITY residual on pair-means (Nm)  -- friction cancelled:
+  joint1:    0.494
+  joint2:    0.935
+  joint3:    0.328
+  joint4:    0.387
+  joint5:    0.129
+  joint6:    0.123
+  joint7:    0.119
+per-joint Coulomb friction |f_c| estimate (median half-diff, Nm):
+  joint1:    3.665
+  joint2:    3.681
+  joint3:    0.801
+  joint4:    0.684
+  joint5:    0.190
+  joint6:    0.267
+  joint7:    0.233
+suggested starting coulomb_friction (60% of estimate):
+  [2.2, 2.21, 0.48, 0.41, 0.11, 0.16, 0.14]
+```
+
+**怎么解读这三组数:**
+- **per-sample residual**:对每行 CSV 算的残差。**双向数据下每行带 ±f_c**,所以这个数会被摩擦"撑住"在 |f_c| 上下,看似没怎么变好 —— 不是 LS 没干活,是单行残差物理上 ≥ 摩擦幅度。
+- **pair-mean residual**:把每对(同 q、相反摩擦方向)平均后再算残差。摩擦消掉,剩下的是**真重力模型误差**。0.1–1 Nm 都算正常,> 2 Nm 说明 URDF 惯性参数那一段(或测量符号)有问题。
+- **|f_c| estimate**:`median(|τ_a − τ_b|/2)` per joint —— 直接把每关节的库仑摩擦给出来。`suggested` 那一行(估计值的 60%)可以**直接抄进** `gravity_compensation.yaml` 的 `coulomb_friction:` —— 见 §4.2.2。
+
+`identified_params.yaml` 里也会多两个字段:`meta.pair_mean_rms_nm` 和顶层 `coulomb_friction_estimate_nm`,方便事后查。
 
 ---
 
@@ -188,6 +235,27 @@ ros2 topic echo /gravity_compensation_controller/gravity_torque --once
 - `damping`:加大让拖动更"黏"、抑制抖动;0 = 纯重力补偿。
 - `max_torque`:每关节力矩硬上限(默认 ≤ URDF effort 限);安全天花板,别调高。
 - `velocity_limit`:超速保护,关节超过该速度即该周期力矩归 0。
+
+**摩擦补偿(`coulomb_friction` / `viscous_friction` / `coulomb_velocity_eps`)**
+
+只补重力时,**任何方向的拖动**都还要先克服每个关节的摩擦 —— XY 水平拖动尤其明显(高度不变 → 重力项不变 → 全部阻力来自摩擦)。Z 方向因为高度变化让重力项也跟着变,所以"感觉"轻一些,**这不是摩擦更小,是你额外利用了重力梯度**。
+
+- `coulomb_friction[i]` (Nm):关节 i 的库仑摩擦补偿幅度。控制器以 `f_c · tanh(q̇/eps)` 加到命令力矩,在关节动起来的方向上**主动出力**。
+- `viscous_friction[i]` (Nm·s/rad):粘滞摩擦补偿(在速度方向上正反馈)。**必须 ≤ 同关节的 `damping`**,否则净反馈为正 → 不稳定。
+- `coulomb_velocity_eps` (rad/s):`tanh` 平滑阈值,0.03–0.1 都合理。太小会在零速度附近抖。
+
+**标准流程(实测验证可用):**
+
+1. 跑双向采集 + 辨识(§4.1.2 / §4.1.3),拿到 `identify` 末尾的 `suggested starting coulomb_friction` 那一行。
+2. **直接抄进** `gravity_compensation.yaml`:
+   ```yaml
+   coulomb_friction: [2.2, 2.21, 0.48, 0.41, 0.11, 0.16, 0.14]   # 抄自 identify 输出
+   ```
+3. 不需要重新构建(yaml 是 config dir,launch 启动时读)。重启 `free_drive`,enable,推机械臂。
+4. **预期**:XY 水平方向手感明显变轻;不再有"硬墙"卡感。
+5. 微调:某关节还推不动 → 把它的 `coulomb_friction` 往 70–80% 调;零速度附近抖 → 加 `coulomb_velocity_eps` 到 0.08–0.1;某关节松手后微抖 → 调小那一项或加它的 `damping`。
+
+> 在 EUPH 实机上跑下来,从 `est. |f_c|` 60% 起调基本一次到位 —— 不需要逐关节扫。100% 全补不推荐(零速度极易抖)。
 
 ---
 

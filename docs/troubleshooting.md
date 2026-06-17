@@ -547,6 +547,36 @@ direction (sinks, or floats upward) instead of staying put.
 
 ---
 
+## free-drive-stiff-in-xy
+
+**Full symptom:** gravity compensation works — the arm holds its position in Z — but
+horizontal (XY) pushes feel heavy and unresponsive, as if external force is being
+resisted by a soft spring.
+
+**Cause:** XY motion at fixed height does not change gravity, so gravity compensation
+alone does *not* lighten it. Every direction (including Z) still has to overcome each
+joint's static + Coulomb friction. The reason Z *feels* better is that as the arm sinks
+the gravity term changes with it, giving the impression of less resistance — you are
+co-opting gravity, not avoiding friction.
+
+**Fix:** turn on the controller's friction compensation in
+`config/gravity_compensation.yaml`:
+```yaml
+coulomb_friction: [2.0, 1.0, 0.4, 0.8, 0.2, 0.2, 0.1]   # tune per joint
+viscous_friction: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]   # only raise if there
+                                                         # is residual viscous drag
+coulomb_velocity_eps: 0.05
+```
+Get starting values from the `est. Coulomb |f_c|` line that `armv7_dyn_ident collect`
+prints during bidirectional sampling. Begin at 50–70% of the measured value and tune up
+one joint at a time. See [testing_phase4.md § 4.2.2](testing_phase4.md) for the full
+procedure.
+
+If you turn `viscous_friction` up, KEEP IT ≤ the corresponding `damping`. Otherwise the
+net velocity coefficient is positive (positive feedback) and the arm oscillates.
+
+---
+
 ## free-drive-no-robot-description
 
 **Full symptom:** `gravity_compensation_controller` fails to configure with

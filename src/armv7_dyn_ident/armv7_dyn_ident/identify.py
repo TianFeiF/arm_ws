@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import os
 import sys
 from typing import List
 
@@ -56,6 +57,23 @@ def load_csv(path: str, n: int):
 def build_stack(gm: GravityModel, q: np.ndarray):
     blocks = [gm.regressor(q[r]) for r in range(q.shape[0])]
     return np.vstack(blocks)                       # (N*n, 4n)
+
+
+def detect_bidirectional_pairs(q: np.ndarray, tau: np.ndarray, tol: float = 1e-3):
+    """Detect 'pair of adjacent rows with identical q' = bidirectional collect.
+
+    Returns (q_pair, tau_mean, tau_halfdiff) where:
+      * tau_mean[k]    = (tau[2k] + tau[2k+1]) / 2   (friction-cancelled gravity)
+      * tau_halfdiff[k]= (tau[2k] - tau[2k+1]) / 2   (signed Coulomb friction per pose)
+    or None if the data is not paired.
+    """
+    if q.shape[0] < 2 or q.shape[0] % 2 != 0:
+        return None
+    q_a = q[0::2]; q_b = q[1::2]
+    if not np.allclose(q_a, q_b, atol=tol):
+        return None
+    tau_a = tau[0::2]; tau_b = tau[1::2]
+    return q_a, (tau_a + tau_b) / 2.0, (tau_a - tau_b) / 2.0
 
 
 def identify(gm: GravityModel, q: np.ndarray, tau: np.ndarray,
@@ -98,30 +116,39 @@ def identify(gm: GravityModel, q: np.ndarray, tau: np.ndarray,
 
 
 def write_yaml(path: str, gm: GravityModel, phi, rms_before, rms_after,
-               cond, args, n_samples):
+               cond, args, n_samples, pair_residual=None, coulomb_estimate=None):
+    path = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
+    parent = os.path.dirname(path)
+    if parent:
+        os.makedirs(parent, exist_ok=True)
     links = gm.params_to_links(phi)
-    doc = {
-        'identified_dynamics': {
-            'joints': gm.joint_names,
-            'gravity_axis': [float(x) for x in gm._gravity_axis],
-            'links': [
-                {'name': l['name'],
-                 'mass': round(l['mass'], 6),
-                 'com': [round(c, 6) for c in l['com']]}
-                for l in links
-            ],
-            'meta': {
-                'n_samples': int(n_samples),
-                'fix_masses': not args.free_masses,
-                'reg': args.reg,
-                'rms_before_nm': [round(float(v), 4) for v in rms_before],
-                'rms_after_nm': [round(float(v), 4) for v in rms_after],
-                'regressor_cond': round(float(cond), 1),
-                'source_csv': args.csv,
-                'date': datetime.date.today().isoformat(),
-            },
-        }
+    meta = {
+        'n_samples': int(n_samples),
+        'fix_masses': not args.free_masses,
+        'reg': args.reg,
+        'rms_before_nm': [round(float(v), 4) for v in rms_before],
+        'rms_after_nm': [round(float(v), 4) for v in rms_after],
+        'regressor_cond': round(float(cond), 1),
+        'source_csv': args.csv,
+        'date': datetime.date.today().isoformat(),
     }
+    if pair_residual is not None:
+        meta['pair_mean_rms_nm'] = [round(float(v), 4) for v in pair_residual]
+    payload = {
+        'joints': gm.joint_names,
+        'gravity_axis': [float(x) for x in gm._gravity_axis],
+        'links': [
+            {'name': l['name'],
+             'mass': round(l['mass'], 6),
+             'com': [round(c, 6) for c in l['com']]}
+            for l in links
+        ],
+        'meta': meta,
+    }
+    if coulomb_estimate is not None:
+        payload['coulomb_friction_estimate_nm'] = [
+            round(float(v), 3) for v in coulomb_estimate]
+    doc = {'identified_dynamics': payload}
     with open(path, 'w') as f:
         yaml.safe_dump(doc, f, sort_keys=False, default_flow_style=None)
 
@@ -166,13 +193,39 @@ def main(argv=None):
         gm, q, tau, args.reg, args.free_masses, sign)
 
     print(f'samples: {q.shape[0]}   regressor cond: {cond:.1f}')
-    print('per-joint torque RMS residual (Nm):')
+    print('per-joint torque RMS residual (Nm)  -- per-sample, includes Coulomb noise:')
     for j, name in enumerate(gm.joint_names):
         print(f'  {name}:  urdf {rms_before[j]:7.3f}  ->  identified {rms_after[j]:7.3f}')
     print(f'mean: urdf {rms_before.mean():.3f} -> identified {rms_after.mean():.3f}')
 
-    write_yaml(args.out, gm, phi, rms_before, rms_after, cond, args, q.shape[0])
-    print(f'wrote {args.out}')
+    pair_residual = None
+    coulomb_estimate = None
+    paired = detect_bidirectional_pairs(q, tau * sign[None, :])
+    if paired is not None:
+        q_pair, tau_mean, tau_half = paired
+        Y_pair = build_stack(gm, q_pair)
+        b_pair = tau_mean.reshape(-1)
+        pair_residual = np.sqrt(np.mean(((Y_pair @ phi - b_pair).reshape(-1, gm.n)) ** 2,
+                                        axis=0))
+        coulomb_estimate = np.median(np.abs(tau_half), axis=0)
+        print()
+        print(f'bidirectional pairs detected: {q_pair.shape[0]} poses')
+        print('per-joint GRAVITY residual on pair-means (Nm)  -- friction cancelled:')
+        for j, name in enumerate(gm.joint_names):
+            print(f'  {name}:  {pair_residual[j]:7.3f}')
+        print('per-joint Coulomb friction |f_c| estimate (median half-diff, Nm):')
+        for j, name in enumerate(gm.joint_names):
+            print(f'  {name}:  {coulomb_estimate[j]:7.3f}')
+        suggest = [round(0.6 * v, 2) for v in coulomb_estimate]
+        print('suggested starting coulomb_friction (60% of estimate):')
+        print('  ' + str(suggest))
+        print('  -> paste into gravity_compensation.yaml under '
+              'gravity_compensation_controller:ros__parameters:')
+
+    out_abs = os.path.abspath(os.path.expanduser(os.path.expandvars(args.out)))
+    write_yaml(out_abs, gm, phi, rms_before, rms_after, cond, args, q.shape[0],
+               pair_residual=pair_residual, coulomb_estimate=coulomb_estimate)
+    print(f'wrote {out_abs}')
 
     if args.plot:
         _plot(gm, q, tau * sign[None, :], phi)

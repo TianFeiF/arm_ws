@@ -14,7 +14,7 @@ gravity_compensation_controller:
 
     # Fraction of gravity to cancel. 1.0 = weightless. Start lower (e.g. 0.8)
     # when tuning so the arm stays slightly heavy and never drifts upward.
-    gravity_scale: 0.8
+    gravity_scale: 0.9
 
     # Torque linearly ramps 0 -> full over this many seconds after activation,
     # so the arm does not jump when the controller starts.
@@ -34,6 +34,25 @@ gravity_compensation_controller:
     # Viscous damping -d*qd (Nm*s/rad) added to each joint. Small values make
     # free-drive feel smooth and suppress oscillation; 0 = pure gravity comp.
     damping: [0.5, 0.5, 0.3, 0.3, 0.2, 0.2, 0.2]
+
+    # ----- Friction compensation -----
+    # If the arm feels heavy in directions that DON'T change gravity (e.g. pure
+    # XY pushing), the resistance is joint friction, not under-compensated
+    # gravity. These two terms push extra torque in the direction the joint is
+    # moving so external nudges meet less stiction.
+    #
+    # coulomb_friction (Nm): magnitude per joint. Tune up until the joint
+    #     starts moving freely under hand pressure. Too high -> the arm twitches
+    #     near zero velocity. Reasonable starting values: 30-70% of the
+    #     |f_c| estimate `collect` prints during bidirectional sampling.
+    # viscous_friction (Nm*s/rad): positive feedback on velocity. KEEP THIS
+    #     <= damping above or you get net positive feedback => instability.
+    # coulomb_velocity_eps (rad/s): smooths tanh(qd/eps) so the sign(qd)
+    #     discontinuity does not chatter. 0.03-0.1 is normal.
+    #coulomb_friction: [2.2, 2.21, 0.48, 0.41, 0.11, 0.16, 0.14]
+    coulomb_friction: [3.66, 3.68, 0.80, 0.68, 0.19, 0.27, 0.23]
+    viscous_friction: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    coulomb_velocity_eps: 0.05
 
     # Start with torque OFF; call `ros2 service call /gravity_compensation_controller/enable
     # std_srvs/srv/SetBool "{data: true}"` once you are ready and clear of the arm.

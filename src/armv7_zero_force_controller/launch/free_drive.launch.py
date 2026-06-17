@@ -18,6 +18,9 @@ DANGER: in torque mode the arm holds itself up only as well as the model. Keep a
 hand on the E-Stop. The controller starts DISABLED; enable it with
     ros2 service call /gravity_compensation_controller/enable std_srvs/srv/SetBool "{data: true}"
 """
+import os
+import tempfile
+
 from ament_index_python.packages import get_package_share_path
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction, RegisterEventHandler
@@ -52,11 +55,21 @@ def _setup(context):
         get_package_share_path('armv7_zero_force_controller')
         / 'config' / 'gravity_compensation.yaml')
 
-    gc_overrides = {}
+    cm_params = [robot_description, controllers_yaml]
     if identified_params:
-        gc_overrides = {
-            'gravity_compensation_controller.identified_params_file': identified_params,
-        }
+        # The C++ YAML loader does not expand ~ or env vars; do it here.
+        resolved = os.path.abspath(os.path.expanduser(os.path.expandvars(identified_params)))
+        # The dotted-key dict form does not reliably reach the controller in
+        # this CM version; pass the override as a normal controllers yaml file
+        # instead so it goes through the exact same load path as the main one.
+        fd, override_yaml = tempfile.mkstemp(suffix='.yaml', prefix='gc_override_')
+        os.close(fd)
+        with open(override_yaml, 'w') as f:
+            f.write(
+                'gravity_compensation_controller:\n'
+                '  ros__parameters:\n'
+                f'    identified_params_file: {resolved}\n')
+        cm_params.append(override_yaml)
 
     rsp = Node(
         package='robot_state_publisher',
@@ -69,7 +82,7 @@ def _setup(context):
     ros2_control_node = Node(
         package='controller_manager',
         executable='ros2_control_node',
-        parameters=[robot_description, controllers_yaml, gc_overrides],
+        parameters=cm_params,
         prefix=rt_prefix,
         output='screen',
     )
@@ -105,7 +118,9 @@ def generate_launch_description():
                               description='mock_components instead of EtherCAT CST.'),
         DeclareLaunchArgument('use_rt', default_value='true',
                               description='Run ros2_control_node under SCHED_FIFO 99.'),
-        DeclareLaunchArgument('identified_params', default_value='',
-                              description='Optional armv7_dyn_ident identified_params.yaml path.'),
+        DeclareLaunchArgument(
+            'identified_params',
+            default_value='~/arm_ws/src/armv7_dyn_ident/config/identified_params.yaml',
+            description='Optional armv7_dyn_ident identified_params.yaml path.'),
         OpaqueFunction(function=_setup),
     ])
