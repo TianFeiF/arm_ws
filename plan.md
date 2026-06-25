@@ -141,7 +141,7 @@ W4  ░░░░░░░░░░░░░░░░░░░░████  �
 
 | 模块 | 目标版本 | 预估工期 |
 |---|---|---|
-| 完整 Cartesian impedance / admittance 控制 | v0.2 | 4 周 |
+| 完整 Cartesian impedance / admittance 控制 | v0.2 | 4 周(impedance alpha 已落地,见 [armv7_impedance_moveit](src/armv7_impedance_moveit/)) |
 | 在线动力学辨识 + 自适应重力补偿 | v0.2 | 3 周 |
 | RViz panel(示教、点位编辑、轨迹回放) | v0.2 | 2 周 |
 | Gazebo / Ignition 完整仿真支持 | v0.3 | 2 周 |

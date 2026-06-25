@@ -1,0 +1,34 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>armv7_rqt</name>
+  <version>0.2.0</version>
+  <description>Unified rqt control panel for the armv7 arm: switch POSITION and FORCE control at
+  runtime, enable / tare the Cartesian impedance, live-tune stiffness / damping / friction,
+  and monitor pose error, commanded wrench and the estimated external wrench — all in one
+  dockable panel next to MoveIt's RViz. Frontend over armv7_mode_manager (mode) and the
+  cartesian_impedance_controller (tuning + monitoring).</description>
+  <maintainer email="chunyvtian@gmail.com">TianFeiF</maintainer>
+  <license>Apache-2.0</license>
+  <author>TianFeiF</author>
+
+  <buildtool_depend>ament_python</buildtool_depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>rqt_gui</exec_depend>
+  <exec_depend>rqt_gui_py</exec_depend>
+  <exec_depend>python_qt_binding</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>std_srvs</exec_depend>
+  <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>rcl_interfaces</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>python3-numpy</exec_depend>
+
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+    <rqt_gui plugin="${prefix}/plugin.xml"/>
+  </export>
+</package>

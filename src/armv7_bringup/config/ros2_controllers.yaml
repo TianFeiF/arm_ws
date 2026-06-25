@@ -10,6 +10,13 @@ controller_manager:
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
 
+    # Holds the per-joint mode_of_operation command interface and forwards
+    # /mode_controller/commands (Float64MultiArray, 8=CSP / 10=CST) to it.
+    # Only spawned on real EtherCAT hardware (unified.launch.py); the patched
+    # cia402 plugin routes the value to 0x6060 for runtime CSP<->CST switching.
+    mode_controller:
+      type: forward_command_controller/ForwardCommandController
+
 plan_group_controller:
   ros__parameters:
     joints:
@@ -26,3 +33,15 @@ plan_group_controller:
     state_interfaces:
       - position
       - velocity
+
+mode_controller:
+  ros__parameters:
+    joints:
+      - joint1
+      - joint2
+      - joint3
+      - joint4
+      - joint5
+      - joint6
+      - joint7
+    interface_name: mode_of_operation

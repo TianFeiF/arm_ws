@@ -1,0 +1,59 @@
+<?xml version="1.0"?>
+<!--
+  EtherCAT ros2_control fragment for RUNTIME position<->force switching.
+
+  Each joint exposes position + velocity + effort command interfaces AND a
+  `mode_of_operation` command interface. The drive starts in CSP (mode 8) and a
+  controller (forward_command_controller "mode_controller") writes 8 (CSP) or
+  10 (CST) into mode_of_operation at runtime; the cia402 plugin routes that to
+  0x6060, so position control (CSP, JTC writes 0x607a) and force control (CST,
+  impedance writes 0x6071) coexist on one hardware interface and switch without
+  a relaunch.
+
+  Used by armv7_bringup/launch/unified.launch.py. The mode_of_operation command
+  interface is NOT tied to a PDO channel directly — the plugin reads it by index
+  and writes 0x6060 — so it is safe to leave it unclaimed (drive holds its mode).
+
+  Requires the patched ethercat_generic_cia402_drive (command_interface/mode_of_operation
+  support). Validate the CSP<->CST handover on hardware with a hand on the E-Stop.
+-->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <xacro:macro name="armv7_ros2_control" params="name initial_positions_file">
+
+        <ros2_control name="${name}_ethercat" type="system">
+            <hardware>
+                <plugin>ethercat_driver/EthercatDriver</plugin>
+                <param name="master_id">0</param>
+                <param name="control_frequency">100</param>
+            </hardware>
+
+            <xacro:macro name="unified_joint" params="jname slave_pos config">
+                <joint name="${jname}">
+                    <command_interface name="position"/>
+                    <command_interface name="velocity"/>
+                    <command_interface name="effort"/>
+                    <command_interface name="mode_of_operation"/>
+                    <command_interface name="reset_fault"/>
+                    <state_interface name="position"/>
+                    <state_interface name="velocity"/>
+                    <state_interface name="effort"/>
+                    <ec_module name="EUmotor">
+                      <plugin>ethercat_generic_plugins/EcCiA402Drive</plugin>
+                      <param name="alias">0</param>
+                      <param name="position">${slave_pos}</param>
+                      <param name="mode_of_operation">8</param>
+                      <param name="slave_config">$(find armv7_bringup)/config/${config}</param>
+                    </ec_module>
+                </joint>
+            </xacro:macro>
+
+            <xacro:unified_joint jname="joint1" slave_pos="0" config="EUPH17_unified_config.yaml"/>
+            <xacro:unified_joint jname="joint2" slave_pos="1" config="EUPH17_unified_config.yaml"/>
+            <xacro:unified_joint jname="joint3" slave_pos="2" config="EUPH14_unified_config.yaml"/>
+            <xacro:unified_joint jname="joint4" slave_pos="3" config="EUPH14_unified_config.yaml"/>
+            <xacro:unified_joint jname="joint5" slave_pos="4" config="EUPH11_unified_config.yaml"/>
+            <xacro:unified_joint jname="joint6" slave_pos="5" config="EUPH11_unified_config.yaml"/>
+            <xacro:unified_joint jname="joint7" slave_pos="6" config="EUPH11_unified_config.yaml"/>
+        </ros2_control>
+    </xacro:macro>
+</robot>

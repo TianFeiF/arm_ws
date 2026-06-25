@@ -15,10 +15,13 @@
   <exec_depend>armv7_diagnostics</exec_depend>
   <exec_depend>armv7_tcp</exec_depend>
   <exec_depend>armv7_ee_dummy_gripper</exec_depend>
+  <exec_depend>armv7_impedance_moveit</exec_depend>
+  <exec_depend>armv7_mode_manager</exec_depend>
 
   <exec_depend>controller_manager</exec_depend>
   <exec_depend>joint_state_broadcaster</exec_depend>
   <exec_depend>joint_trajectory_controller</exec_depend>
+  <exec_depend>forward_command_controller</exec_depend>
   <exec_depend>ros2_control</exec_depend>
   <exec_depend>ros2_controllers</exec_depend>
 

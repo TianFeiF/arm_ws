@@ -29,8 +29,10 @@
 | [`armv7_eyehand`](src/armv7_eyehand/README.md) | RealSense D435 mount xacro + 手眼标定结果静态 TF launch |
 | [`armv7_dyn_ident`](src/armv7_dyn_ident/README.md) | 动力学辨识:重力符号模型 + 静态位姿采集 `collect` + 离线辨识 `identify` |
 | [`armv7_zero_force_controller`](src/armv7_zero_force_controller/README.md) | 重力补偿 / 自由拖动 C++ 控制器(KDL,CST 力矩模式;含库仑/粘滞摩擦补偿) |
-| [`armv7_impedance_moveit`](src/armv7_impedance_moveit) | v0.1 starter:6-DoF Cartesian 阻抗/导纳控制接口契约 + README + TODO(v0.2 落实控制循环) |
-| [`ethercat_driver_ros2/`](src/ethercat_driver_ros2) | ICube ethercat_driver_ros2 的内嵌副本,改用 `pkg-config` 自动定位 IgH master |
+| [`armv7_impedance_moveit`](src/armv7_impedance_moveit) | v0.2 alpha:`CartesianImpedanceController`(KDL FK+Jacobian,弹簧阻尼+Jᵀ,重力/摩擦补偿 + 残差外力估计)+ Tkinter 调参面板 |
+| [`armv7_mode_manager`](src/armv7_mode_manager) | 运行时 位控↔力控 协调器(`mode_switcher`);见 [docs/unified_control.md](docs/unified_control.md) |
+| [`armv7_rqt`](src/armv7_rqt) | 统一 rqt 控制面板:模式切换 + 阻抗调参 + 力监控 |
+| [`ethercat_driver_ros2/`](src/ethercat_driver_ros2) | ICube ethercat_driver_ros2 内嵌副本(`pkg-config` 定位 IgH master;cia402 插件加 `mode_of_operation` 运行时模式切换) |
 
 ## 快速开始
 
@@ -189,6 +191,8 @@ ros2 param set /tcp_publisher_node payload_mass  0.5
 - [docs/testing.md](docs/testing.md) — 标准功能测试手册(A/B/C 三档,核心 + 安全 + 诊断)。
 - [docs/testing_phase3.md](docs/testing_phase3.md) — Phase 3 测试手册(末端执行器 + 传感器 + TCP)。
 - [docs/testing_phase4.md](docs/testing_phase4.md) — Phase 4 测试手册(动力学辨识 + 重力补偿 / 自由拖动)。
+- [docs/testing_phase5.md](docs/testing_phase5.md) — Phase 5 测试手册(v0.2 alpha:Cartesian 阻抗 + 打螺丝路线图)。
+- [docs/unified_control.md](docs/unified_control.md) — 统一控制:运行时 位控↔力控 切换 + rqt 面板集成。
 - [docs/troubleshooting.md](docs/troubleshooting.md) — 22 个常见报错的诊断与修复。
 - [docs/integration/ft_sensor.md](docs/integration/ft_sensor.md) — F/T 传感器(EtherCAT 与网口两种)集成指南。
 - [CHANGELOG.md](CHANGELOG.md) — 按 Keep a Changelog 格式记录每个版本的变更。

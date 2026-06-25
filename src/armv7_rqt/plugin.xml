@@ -1,0 +1,18 @@
+<library path="armv7_rqt">
+  <class name="armv7_rqt/Armv7Panel"
+         type="armv7_rqt.armv7_panel.Armv7Panel"
+         base_class_type="rqt_gui_py::Plugin">
+    <description>
+      armv7 unified control panel: runtime position/force switch, impedance
+      tuning, and force monitoring.
+    </description>
+    <qtgui>
+      <group>
+        <label>Robot Tools</label>
+      </group>
+      <label>armv7 Panel</label>
+      <icon type="theme">applications-system</icon>
+      <statustip>armv7 mode switch + impedance tuning + monitoring</statustip>
+    </qtgui>
+  </class>
+</library>

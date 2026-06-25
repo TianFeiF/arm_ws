@@ -1,0 +1,91 @@
+controller_manager:
+  ros__parameters:
+    update_rate: 200
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+    cartesian_impedance_controller:
+      type: armv7_impedance_moveit/CartesianImpedanceController
+
+cartesian_impedance_controller:
+  ros__parameters:
+    joints: [joint1, joint2, joint3, joint4, joint5, joint6, joint7]
+    root_link: base_link
+    tip_link: link7
+
+    # ----- Cartesian spring-damper (BASE frame) -----
+    # 6 entries in order [trans_x, trans_y, trans_z, rot_x, rot_y, rot_z].
+    # Translation stiffness N/m, rotation stiffness N*m/rad.
+    # Start CONSERVATIVE.  Crank up only after the loop is stable on hardware.
+    stiffness: [500.0, 500.0, 500.0, 30.0, 30.0, 30.0]
+
+    # Dimensionless 0..1. 0.4 = mild damping, 1.0 = critical.
+    damping_ratio: [0.4, 0.4, 0.4, 0.2, 0.2, 0.2]
+
+    # Hard cap on commanded wrench per axis (N / N*m). Safety ceiling.
+    wrench_limit: [60.0, 60.0, 60.0, 10.0, 10.0, 10.0]
+
+    # Per-axis tracking error CLIP before multiplying by K. Prevents a bad target
+    # (or jump-discontinuity from a new ~/target_pose) from launching the arm.
+    max_pose_error: [0.10, 0.10, 0.10, 0.50, 0.50, 0.50]
+
+    # ----- Shared with armv7_zero_force_controller (reuse v0.1 calibration) -----
+    gravity_scale: 0.9
+    ramp_in_time: 2.0
+    velocity_limit: 2.0
+    gravity_vector: [0.0, 0.0, -9.80665]
+    max_torque: [30.0, 30.0, 12.0, 12.0, 5.5, 5.5, 5.5]
+    damping: [0.5, 0.5, 0.3, 0.3, 0.2, 0.2, 0.2]
+    coulomb_friction: [2.2, 2.21, 0.48, 0.41, 0.11, 0.16, 0.14]
+    viscous_friction: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+    coulomb_velocity_eps: 0.05
+
+    # Velocity deadband (rad/s) for friction compensation.
+    # IMPORTANT for impedance stability: coulomb*tanh(qd/eps) introduces an
+    # effective positive damping of (coulomb/eps) at |qd| << eps. With high
+    # coulomb (e.g. joint1 = 2.2 Nm) and small eps (0.05), this is ~44 Nm*s/rad
+    # of positive feedback -- far exceeding our 0.5 Nm*s/rad joint damping.
+    # In free-drive (no Cartesian spring) this doesn't excite; in impedance the
+    # spring closes the loop and the system diverges into limit-cycle shake.
+    # The deadband shifts the tanh so comp == 0 for |qd| < velocity_deadband,
+    # killing the positive feedback at zero velocity while still helping
+    # intentional pushes above the threshold. Live-tunable via dashboard.
+    velocity_deadband: 0.05
+
+    # 0..1 scalar that multiplies coulomb_friction AND viscous_friction at
+    # runtime. Lets you dial all friction comp down without re-editing yaml.
+    # Live-tunable; start at 1.0 and lower it if you still see oscillation.
+    friction_compensation_scale: 1.0
+
+    # ----- Null-space control (7-DoF redundancy) -----
+    # The arm has 1 free internal DoF for a 6-DoF Cartesian task. Without
+    # control of it, the joints slowly drift (reconfigure) at fixed TCP, which
+    # shows up as a "joint jump" when switching force<->position. These terms
+    # act ONLY in the null-space of J (never disturb the Cartesian task):
+    #   nullspace_damping (Nm*s/rad): damps null-space joint velocity -> stops
+    #     drift. ON by default. Raise if the elbow still wanders.
+    #   nullspace_stiffness (Nm/rad): also pulls the redundant DoF toward the
+    #     posture captured when force engaged. 0 = free to reconfigure by hand
+    #     (only damped); >0 = the elbow springs back to its engage posture.
+    # Live-tunable.
+    nullspace_stiffness: 0.0
+    nullspace_damping: 1.0
+
+    # ----- External-wrench estimation (residual method) -----
+    # Estimates the external wrench on the TCP without an F/T sensor:
+    #   F_ext = (J J^T + lambda I)^-1 J (tau_measured - gravity_scale * G(q))
+    # then low-passed and tared. Published on ~/external_wrench (WrenchStamped,
+    # base_link frame). v1 subtracts gravity only (not friction): the estimate
+    # is most accurate at LOW velocity (the screw-seating regime); fast manual
+    # pushes read noisier. Tare on every enable (after ramp) and via the
+    # ~/tare_external_wrench service.
+    #
+    # lambda: damped pseudo-inverse regularisation. Smaller = higher fidelity
+    #   away from singularities, but amplifies noise near them. 0.01 is a good
+    #   working value; raise toward 0.05 if the estimate is jumpy.
+    external_wrench_lambda: 0.01
+    # Low-pass cutoff (Hz). Joint-torque sensing is noisy; 5 Hz keeps the
+    # human-push band (0.5-2 Hz) and the seating step while cutting hiss.
+    external_wrench_filter_cutoff: 5.0
+    external_wrench_frame: base_link
+
+    enable_at_start: false

@@ -63,6 +63,13 @@ protected:
   bool fault_reset_ = false;
   int fault_reset_command_interface_index_ = -1;
   bool last_fault_reset_command_ = false;
+  // Optional runtime mode-of-operation switching (CSP 8 <-> CST 10 etc.).
+  // When a command interface is mapped to mode_of_operation (via
+  // command_interface/mode_of_operation in the URDF), the drive reads the mode
+  // from it each cycle instead of the static mode_of_operation_ param. NaN /
+  // out-of-range values are ignored (the last valid mode is held), so a
+  // controller that does not write it cannot knock the drive out of mode.
+  int mode_of_operation_command_interface_index_ = -1;
   double last_position_ = std::numeric_limits<double>::quiet_NaN();
 
   /** returns device state based upon the status_word */

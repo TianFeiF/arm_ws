@@ -85,6 +85,17 @@ void EcCiA402Drive::processData(size_t index, uint8_t * domain_address)
 
   // setup mode of operation
   if (pdo_channels_info_[index].index == CiA402D_RPDO_MODE_OF_OPERATION) {
+    // Runtime override: if a command interface is mapped to mode_of_operation,
+    // use the value a controller writes there (CSP 8 / CST 10 / ...). Ignore
+    // NaN or out-of-range so a controller that does not drive it cannot knock
+    // the drive out of its current mode; the last valid mode is held.
+    if (mode_of_operation_command_interface_index_ >= 0) {
+      const double cmd =
+        command_interface_ptr_->at(mode_of_operation_command_interface_index_);
+      if (!std::isnan(cmd) && cmd >= 0 && cmd <= 10) {
+        mode_of_operation_ = static_cast<int8_t>(cmd);
+      }
+    }
     if (mode_of_operation_ >= 0 && mode_of_operation_ <= 10) {
       pdo_channels_info_[index].default_value = mode_of_operation_;
     }
@@ -152,6 +163,11 @@ bool EcCiA402Drive::setupSlave(
 
   if (paramters_.find("command_interface/reset_fault") != paramters_.end()) {
     fault_reset_command_interface_index_ = std::stoi(paramters_["command_interface/reset_fault"]);
+  }
+
+  if (paramters_.find("command_interface/mode_of_operation") != paramters_.end()) {
+    mode_of_operation_command_interface_index_ =
+      std::stoi(paramters_["command_interface/mode_of_operation"]);
   }
 
   return true;

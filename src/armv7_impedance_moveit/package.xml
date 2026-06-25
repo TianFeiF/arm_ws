@@ -2,18 +2,40 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>armv7_impedance_moveit</name>
-  <version>0.1.0</version>
-  <description>v0.1 STARTER PACKAGE for 6-DoF Cartesian impedance / admittance control with
-  MoveIt on the armv7 arm. This release ships the *interface contract* (header structs,
-  planned topics / services / params), a README explaining what the v0.2 implementation
-  must do, and a TODO file enumerating the work — but NO control loop yet. The package
-  builds clean so downstream code can compile against the interface today. See README and
-  TODO.md.</description>
+  <version>0.2.0</version>
+  <description>6-DoF Cartesian impedance / admittance controllers for the armv7 arm.
+  v0.2 alpha ships a working Cartesian impedance controller (KDL-based, reuses the
+  v0.1 gravity + friction calibration from armv7_zero_force_controller). The eventual
+  target is a screw-driving primitive that drives one axis under monitored normal force
+  while keeping the other 5 DoFs compliant — that high-level node is a separate package
+  and consumes this controller.</description>
   <maintainer email="chunyvtian@gmail.com">TianFeiF</maintainer>
   <license>Apache-2.0</license>
   <author>TianFeiF</author>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>controller_interface</depend>
+  <depend>hardware_interface</depend>
+  <depend>pluginlib</depend>
+  <depend>rclcpp</depend>
+  <depend>rclcpp_lifecycle</depend>
+  <depend>realtime_tools</depend>
+  <depend>geometry_msgs</depend>
+  <depend>std_msgs</depend>
+  <depend>std_srvs</depend>
+  <depend>kdl_parser</depend>
+  <depend>orocos_kdl</depend>
+  <depend>yaml-cpp</depend>
+  <depend>eigen</depend>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>rcl_interfaces</exec_depend>
+  <exec_depend>tf2_ros</exec_depend>
+  <exec_depend>python3-tk</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
 
   <export>
     <build_type>ament_cmake</build_type>

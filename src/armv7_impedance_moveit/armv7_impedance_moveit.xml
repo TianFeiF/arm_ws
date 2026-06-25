@@ -1,0 +1,10 @@
+<library path="armv7_impedance_moveit">
+  <class name="armv7_impedance_moveit/CartesianImpedanceController"
+         type="armv7_impedance_moveit::CartesianImpedanceController"
+         base_class_type="controller_interface::ControllerInterface">
+    <description>
+      6-DoF Cartesian impedance controller. Tracks a target pose with a per-axis
+      spring-damper, on top of the v0.1 gravity + friction compensation.
+    </description>
+  </class>
+</library>

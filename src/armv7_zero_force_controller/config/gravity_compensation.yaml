@@ -49,8 +49,8 @@ gravity_compensation_controller:
     #     <= damping above or you get net positive feedback => instability.
     # coulomb_velocity_eps (rad/s): smooths tanh(qd/eps) so the sign(qd)
     #     discontinuity does not chatter. 0.03-0.1 is normal.
-    #coulomb_friction: [2.2, 2.21, 0.48, 0.41, 0.11, 0.16, 0.14]
-    coulomb_friction: [3.66, 3.68, 0.80, 0.68, 0.19, 0.27, 0.23]
+    coulomb_friction: [2.2, 2.21, 0.48, 0.41, 0.11, 0.16, 0.14]
+    #coulomb_friction: [3.66, 3.68, 0.80, 0.68, 0.19, 0.27, 0.23]
     viscous_friction: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     coulomb_velocity_eps: 0.05
 
