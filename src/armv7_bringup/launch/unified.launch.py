@@ -25,6 +25,7 @@ import os
 import tempfile
 from pathlib import Path
 
+import yaml
 from ament_index_python.packages import get_package_share_path
 from launch import LaunchDescription
 from launch.actions import (
@@ -132,10 +133,16 @@ def _setup(context):
     actions.append(TimerAction(period=7.0, actions=[jsb]))
     if real_hw:
         mode_ctrl = _spawner('mode_controller')
+        # Always-active utility controller holding the reset_fault interface
+        # (rqt 错误复位 drives it). Mock hardware has no reset_fault interface,
+        # so it is real-hardware only.
+        fault_ctrl = _spawner('fault_reset_controller')
         actions.append(RegisterEventHandler(
             OnProcessExit(target_action=jsb, on_exit=[mode_ctrl])))
         actions.append(RegisterEventHandler(
-            OnProcessExit(target_action=mode_ctrl, on_exit=[first])))
+            OnProcessExit(target_action=mode_ctrl, on_exit=[fault_ctrl])))
+        actions.append(RegisterEventHandler(
+            OnProcessExit(target_action=fault_ctrl, on_exit=[first])))
     else:
         actions.append(RegisterEventHandler(
             OnProcessExit(target_action=jsb, on_exit=[first])))
@@ -155,6 +162,26 @@ def _setup(context):
         }])
     actions.append(TimerAction(period=9.0, actions=[mode_switcher]))
 
+    # MoveIt Servo: real-time Cartesian jog for POSITION mode. Streams a
+    # JointTrajectory to plan_group_controller (active only in position mode, so
+    # its output is ignored in force mode). The rqt 笛卡尔 jog tab drives it via
+    # ~/delta_twist_cmds and ~/start_servo / ~/stop_servo. Reads move_group's
+    # planning scene for collision checking.
+    if LaunchConfiguration('use_servo').perform(context) == 'true':
+        servo_yaml = str(bringup_share / 'config' / 'servo.yaml')
+        with open(servo_yaml) as f:
+            servo_params = {'moveit_servo': yaml.safe_load(f)}
+        servo_node = Node(
+            package='moveit_servo', executable='servo_node_main',
+            name='servo_node', output='screen',
+            parameters=[
+                servo_params,
+                moveit_config.robot_description,
+                moveit_config.robot_description_semantic,
+                moveit_config.robot_description_kinematics,
+            ])
+        actions.append(TimerAction(period=11.0, actions=[servo_node]))
+
     return actions
 
 
@@ -163,6 +190,9 @@ def generate_launch_description():
         DeclareLaunchArgument('use_fake_hardware', default_value='false'),
         DeclareLaunchArgument('use_rt', default_value='true'),
         DeclareLaunchArgument('use_rviz', default_value='true'),
+        DeclareLaunchArgument(
+            'use_servo', default_value='true',
+            description='Launch MoveIt Servo for Cartesian jog in position mode.'),
         DeclareLaunchArgument(
             'start_mode', default_value='force',
             description='Startup control mode: "force" (impedance active+disabled, '

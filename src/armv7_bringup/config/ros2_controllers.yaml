@@ -17,6 +17,15 @@ controller_manager:
     mode_controller:
       type: forward_command_controller/ForwardCommandController
 
+    # Holds the per-joint reset_fault command interface. A rising edge (0 -> 1)
+    # on /fault_reset_controller/commands makes the cia402 plugin pulse the
+    # CiA-402 fault-reset (controlword bit 7) for that drive, clearing a faulted
+    # joint without a relaunch. Drop the value back to 0 to re-arm the edge.
+    # Only spawned on real EtherCAT hardware (the mock system has no reset_fault
+    # interface); the rqt panel's 错误复位 buttons drive it.
+    fault_reset_controller:
+      type: forward_command_controller/ForwardCommandController
+
 plan_group_controller:
   ros__parameters:
     joints:
@@ -45,3 +54,15 @@ mode_controller:
       - joint6
       - joint7
     interface_name: mode_of_operation
+
+fault_reset_controller:
+  ros__parameters:
+    joints:
+      - joint1
+      - joint2
+      - joint3
+      - joint4
+      - joint5
+      - joint6
+      - joint7
+    interface_name: reset_fault

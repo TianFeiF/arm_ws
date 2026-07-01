@@ -61,7 +61,8 @@ ros2 launch armv7_bringup unified.launch.py use_fake_hardware:=true use_rt:=fals
 ```bash
 ros2 launch armv7_bringup unified.launch.py
 ```
-实机额外加载 `mode_controller`(always active,持有 mode_of_operation 接口),且
+实机额外加载 `mode_controller`(always active,持有 mode_of_operation 接口)和
+`fault_reset_controller`(always active,持有 reset_fault 接口,供面板"错误复位"用),且
 `mode_switcher` 的 `manage_drive_mode` 自动为 true。
 
 > 实机需要打了补丁的 `ethercat_generic_cia402_drive`(支持
@@ -141,17 +142,33 @@ to_position(力→位)—— 不掉、不抖(无回零冲击):
 
 ## 5. 面板各区
 
+布局:**顶部**是常驻的"控制模式"行(任何标签页都看得到);中间用**标签页**分组避免单页拥挤;
+**底部**是常驻的"日志"框(滚动显示带时间戳的操作/服务结果)。标签页:
+
+| 标签页 | 含 | 
+|---|---|
+| **力控操作** | 重力补偿/弹簧、目标位姿偏移、摩擦补偿 |
+| **笛卡尔 jog** | 末端按住移动:位控经 MoveIt Servo(刚性)、力控走阻抗目标(柔顺) |
+| **阻抗调参** | 刚度 K、阻尼比 ζ、零空间控制、刚度预设 |
+| **关节 / 复位** | 单关节 jog + 错误复位 |
+| **监控** | 位姿误差 / 力旋量 / 外力估计 |
+
+各控件:
+
 | 区 | 控件 | 作用 |
 |---|---|---|
-| 控制模式 | 切到位控 / 切到力控 + 当前模式 | 调 `mode_switcher`(切力控=0重力) |
+| 控制模式(常驻顶部) | 切到位控 / 切到力控 + 当前模式 | 调 `mode_switcher`(切力控=0重力) |
 | 力控:重力补偿/弹簧 | 启用/停用、**阻抗弹簧开关**、外力置零(tare) | `~/enable`、`stiffness` 0↔配置值、`~/tare_external_wrench` |
 | 目标位姿偏移 | **坐标系下拉**(base_link 世界系 / 末端 tool 工具系)+ dX/dY/dZ + dRoll/dPitch/dYaw + 重新锚定 | 发布 `~/target_pose`(**仅阻抗弹簧开时有效**)。world 系:平移沿世界轴、旋转在世界系;tool 系:平移沿工具轴、旋转在工具系 |
 | 刚度 K | 6 个 spinbox(弹簧开时生效) | 弹簧的刚度值 |
 | 阻尼比 ζ | 6 个 spinbox(实时) | 改 `damping_ratio` |
 | 摩擦补偿 | dz / scale / 关闭按钮 | 改 `velocity_deadband`/`friction_compensation_scale` |
 | 零空间控制 | 阻尼(防漂移)/ 刚度(锁姿态) | 改 `nullspace_damping`/`nullspace_stiffness`,治"切换时关节突变" |
+| 笛卡尔 jog | 坐标系(base/tool)+ 线速/角速 + 6 轴按住 −/+、停止 Servo | **位控**:发 `TwistStamped` 到 `/servo_node/delta_twist_cmds`(MoveIt Servo 解 IK→JTC,刚性、带奇异点/限位/碰撞保护,首次按下自动 `start_servo`);**力控**:按 vel·dt 推进阻抗 `~/target_pose`(需开阻抗弹簧,柔顺)。切到力控会自动 `stop_servo` |
+| 单关节控制 / 错误复位 | 每关节角度读数 + jog −/+(步长可调)、全部/单关节复位 | jog 经 JTC `/plan_group_controller/joint_trajectory`(**仅位控模式**);复位发上升沿到 `fault_reset_controller`(**仅实机**,CiA-402 故障复位) |
 | 刚度预设 | 保守起点 / 稳定基线 / 打螺丝 | 一键套 K+ζ **并打开弹簧** |
 | 实时监控 | 位姿误差 / 力旋量 / 外力估计 | 订阅控制器 debug topic,~10 Hz |
+| 日志(常驻底部) | 滚动文本 | 操作/服务结果带时间戳,~10 Hz 刷新 |
 
 > Tkinter 版 `tuning_dashboard` 仍可用(带曲线图);rqt 面板是集成进 RViz/rqt 工作流的版本。
 
@@ -178,10 +195,11 @@ to_position(力→位)—— 不掉、不抖(无回零冲击):
 
 | 包 | 角色 |
 |---|---|
-| [armv7_bringup](../src/armv7_bringup) | `unified.launch.py`、`armv7_unified.ros2_control.xacro`、`EUPH##_unified_config.yaml` |
+| [armv7_bringup](../src/armv7_bringup) | `unified.launch.py`、`armv7_unified.ros2_control.xacro`、`EUPH##_unified_config.yaml`、`servo.yaml` |
 | [armv7_mode_manager](../src/armv7_mode_manager) | `mode_switcher` 协调器 |
 | [armv7_impedance_moveit](../src/armv7_impedance_moveit) | 阻抗控制器 + Tkinter dashboard |
 | [armv7_rqt](../src/armv7_rqt) | rqt 统一面板 |
+| `moveit_servo` | `servo_node`(位控笛卡尔 jog,`use_servo:=true` 默认起);config = `armv7_bringup/config/servo.yaml` |
 | `ethercat_generic_cia402_drive` | 已打补丁:`command_interface/mode_of_operation` 运行时模式切换 |
 
 ---
@@ -193,4 +211,6 @@ to_position(力→位)—— 不掉、不抖(无回零冲击):
 | 干跑运行时位↔力切换 | ✅ 已验证 |
 | rqt 面板模式切换 + 调参 + 监控 | ✅ 端到端已验证(fake) |
 | cia402 插件 mode 命令接口 | ✅ 编译通过,逻辑就绪 |
+| 笛卡尔 jog(力控走阻抗目标) | ✅ 逻辑/几何已验证(fake) |
+| 笛卡尔 jog(位控 MoveIt Servo) | ⏳ 已接线、配置就绪;需 `unified.launch.py` 起 move_group + servo 实测 |
 | 实机 CSP↔CST 握手 | ⏳ **需实机联调**(时序/安全在硬件上定) |

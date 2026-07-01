@@ -15,9 +15,10 @@ with the result stashed for the timer to surface in the status line.
 """
 import math
 
-from geometry_msgs.msg import PoseStamped, WrenchStamped
+from geometry_msgs.msg import PoseStamped, TwistStamped, WrenchStamped
 import numpy as np
 from python_qt_binding.QtCore import QTimer
+from python_qt_binding.QtGui import QFont
 from python_qt_binding.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -27,7 +28,9 @@ from python_qt_binding.QtWidgets import (
     QGroupBox,
     QHBoxLayout,
     QLabel,
+    QPlainTextEdit,
     QPushButton,
+    QTabWidget,
     QVBoxLayout,
     QWidget,
 )
@@ -36,15 +39,23 @@ from rcl_interfaces.msg import ParameterType, ParameterValue
 from rcl_interfaces.srv import SetParameters
 from rclpy.duration import Duration
 from rclpy.time import Time
+from sensor_msgs.msg import JointState
 from std_msgs.msg import Float64MultiArray, String
 from std_srvs.srv import SetBool, Trigger
 import tf2_ros
+from trajectory_msgs.msg import JointTrajectory, JointTrajectoryPoint
 
 BASE_FRAME = 'base_link'
 TIP_FRAME = 'link7'
 
 CONTROLLER = '/cartesian_impedance_controller'
 MODE_NS = '/mode_switcher'
+JTC = '/plan_group_controller'
+FAULT_CTRL = '/fault_reset_controller'
+SERVO_NS = '/servo_node'
+JOINTS = ['joint1', 'joint2', 'joint3', 'joint4', 'joint5', 'joint6', 'joint7']
+# Cartesian jog axes: (label, twist component index 0=lin.x..5=ang.z)
+CART_AXES = [('X', 0), ('Y', 1), ('Z', 2), ('Roll', 3), ('Pitch', 4), ('Yaw', 5)]
 
 # (label, param_name, index, min, max, step, decimals)
 STIFFNESS = [
@@ -99,8 +110,11 @@ class Armv7Widget(QWidget):
         self._pose_err = [0.0] * 6
         self._cmd_wrench = [0.0] * 6
         self._ext_wrench = [0.0] * 6
+        self._joint_pos = [0.0] * 7   # latest /joint_states, in JOINTS order
+        self._have_js = False
         self._mode = 'unknown'
         self._status = ''
+        self._status_seen = ''   # last status appended to the log view
 
         self._enable_cli = node.create_client(SetBool, f'{CONTROLLER}/enable')
         self._tare_cli = node.create_client(Trigger, f'{CONTROLLER}/tare_external_wrench')
@@ -109,6 +123,21 @@ class Armv7Widget(QWidget):
         self._to_force_cli = node.create_client(Trigger, f'{MODE_NS}/to_force')
         self._target_pub = node.create_publisher(
             PoseStamped, f'{CONTROLLER}/target_pose', 10)
+        # Cartesian jog: position mode -> MoveIt Servo twist; force mode -> walk
+        # the impedance target pose. Servo is started lazily on first position jog.
+        self._twist_pub = node.create_publisher(
+            TwistStamped, f'{SERVO_NS}/delta_twist_cmds', 10)
+        self._servo_start_cli = node.create_client(Trigger, f'{SERVO_NS}/start_servo')
+        self._servo_stop_cli = node.create_client(Trigger, f'{SERVO_NS}/stop_servo')
+        self._servo_started = False
+        self._jog_axis = None        # (twist index, sign) while a button is held
+        self._fjog = None            # (pos np3, quat np4) internal force-mode target
+        # Single-joint jog rides the active JTC (position mode); fault reset drives
+        # the forward_command_controller holding the reset_fault interface (real hw).
+        self._traj_pub = node.create_publisher(
+            JointTrajectory, f'{JTC}/joint_trajectory', 10)
+        self._fault_pub = node.create_publisher(
+            Float64MultiArray, f'{FAULT_CTRL}/commands', 10)
         self._tf_buffer = tf2_ros.Buffer()
         self._tf_listener = tf2_ros.TransformListener(self._tf_buffer, node)
         self._seed_tf = None   # captured base->tip transform for target offsets
@@ -120,12 +149,19 @@ class Armv7Widget(QWidget):
         node.create_subscription(WrenchStamped, f'{CONTROLLER}/external_wrench',
                                  self._on_ext, 10)
         node.create_subscription(String, f'{MODE_NS}/current_mode', self._on_mode, 10)
+        node.create_subscription(JointState, '/joint_states', self._on_js, 10)
 
         self._build_ui()
 
         self._timer = QTimer(self)
         self._timer.timeout.connect(self._refresh)
         self._timer.start(100)
+
+        # 50 Hz pump driving a held Cartesian-jog button (servo needs a steady
+        # twist stream; the force-mode target advances by vel*dt each tick).
+        self._jog_dt = 0.02
+        self._jog_timer = QTimer(self)
+        self._jog_timer.timeout.connect(self._jog_tick)
 
     # ---------------- ROS callbacks (executor thread) -----------------
     def _on_err(self, m):
@@ -143,11 +179,18 @@ class Armv7Widget(QWidget):
     def _on_mode(self, m):
         self._mode = m.data
 
+    def _on_js(self, m):
+        idx = {n: i for i, n in enumerate(m.name)}
+        for j, jn in enumerate(JOINTS):
+            if jn in idx and idx[jn] < len(m.position):
+                self._joint_pos[j] = m.position[idx[jn]]
+        self._have_js = True
+
     # ---------------- UI ----------------------------------------------
     def _build_ui(self):
         root = QVBoxLayout(self)
 
-        # mode row
+        # ---- master mode row: ALWAYS visible (above the tabs) ----
         mode_box = QGroupBox('控制模式  (运行时切换,无需重启)')
         ml = QHBoxLayout(mode_box)
         self.mode_lbl = QLabel('当前: unknown')
@@ -160,6 +203,25 @@ class Armv7Widget(QWidget):
         ml.addWidget(self.btn_pos)
         ml.addWidget(self.btn_force)
         root.addWidget(mode_box)
+
+        # ---- tabs hold the detail panels so no single page is overcrowded ----
+        tabs = QTabWidget()
+        t_force = QVBoxLayout()
+        t_cart = QVBoxLayout()
+        t_tune = QVBoxLayout()
+        t_joint = QVBoxLayout()
+        t_mon = QVBoxLayout()
+        for lay, title in ((t_force, '力控操作'), (t_cart, '笛卡尔 jog'),
+                           (t_tune, '阻抗调参'), (t_joint, '关节 / 复位'),
+                           (t_mon, '监控')):
+            page = QWidget()
+            page.setLayout(lay)
+            tabs.addTab(page, title)
+        root.addWidget(tabs, 1)
+
+        # cartesian jog page
+        t_cart.addWidget(self._build_cart_box())
+        t_cart.addStretch(1)
 
         # impedance enable/tare + spring toggle row
         imp_box = QGroupBox('力控:重力补偿(0重力)/ 阻抗弹簧')
@@ -176,7 +238,7 @@ class Armv7Widget(QWidget):
         il.addWidget(self.btn_enable)
         il.addWidget(self.spring_check)
         il.addWidget(self.btn_tare)
-        root.addWidget(imp_box)
+        t_force.addWidget(imp_box)
 
         # target pose offset (only effective when the spring K>0 is on)
         tgt_box = QGroupBox('目标位姿偏移 (相对 seed;仅阻抗弹簧开时有效)')
@@ -208,7 +270,7 @@ class Armv7Widget(QWidget):
         btn_reseed.clicked.connect(self._reseed_target)
         r2.addWidget(btn_reseed)
         tgl.addLayout(r2)
-        root.addWidget(tgt_box)
+        t_force.addWidget(tgt_box)
 
         # stiffness + damping grids
         grids = QHBoxLayout()
@@ -216,7 +278,7 @@ class Armv7Widget(QWidget):
                                          self._apply_stiffness, 'stiffness'))
         grids.addWidget(self._spin_group('阻尼比 ζ (实时)', DAMPING,
                                          self._apply_damping, 'damping_ratio'))
-        root.addLayout(grids)
+        t_tune.addLayout(grids)
 
         # friction comp
         fric_box = QGroupBox('摩擦补偿 (抖动时调小 scale)')
@@ -234,7 +296,8 @@ class Armv7Widget(QWidget):
         btn_fric_off = QPushButton('关闭摩擦补偿')
         btn_fric_off.clicked.connect(self._fric_off)
         fl.addWidget(btn_fric_off)
-        root.addWidget(fric_box)
+        t_force.addWidget(fric_box)
+        t_force.addStretch(1)
 
         # null-space control (7-DoF redundancy: stops elbow drift -> no joint
         # jump across mode switches)
@@ -250,7 +313,11 @@ class Armv7Widget(QWidget):
         nl.addWidget(self.ns_damp_spin)
         nl.addWidget(QLabel('刚度 (锁姿态)'))
         nl.addWidget(self.ns_stiff_spin)
-        root.addWidget(ns_box)
+        t_tune.addWidget(ns_box)
+
+        # single-joint jog + per-joint fault reset
+        t_joint.addWidget(self._build_joint_box())
+        t_joint.addStretch(1)
 
         # presets
         preset_box = QGroupBox('刚度预设')
@@ -263,7 +330,8 @@ class Armv7Widget(QWidget):
             b = QPushButton(label)
             b.clicked.connect(lambda _c, k=ks, d=ds: self._apply_preset(k, d))
             pl.addWidget(b)
-        root.addWidget(preset_box)
+        t_tune.addWidget(preset_box)
+        t_tune.addStretch(1)
 
         # readouts
         mon_box = QGroupBox('实时监控')
@@ -275,12 +343,33 @@ class Armv7Widget(QWidget):
         for w in (self.err_lbl, self.wr_lbl, self.ext_lbl):
             w.setFrameShape(QFrame.NoFrame)
             mol.addWidget(w)
-        root.addWidget(mon_box)
+        t_mon.addWidget(mon_box)
+        t_mon.addStretch(1)
 
-        self.status_lbl = QLabel('')
-        self.status_lbl.setStyleSheet('color: #555;')
-        root.addWidget(self.status_lbl)
-        root.addStretch(1)
+        # ---- pinned log at the very bottom (outside the tabs, always visible) ----
+        log_box = QGroupBox('日志')
+        lbl_lay = QVBoxLayout(log_box)
+        self.log_view = QPlainTextEdit()
+        self.log_view.setReadOnly(True)
+        self.log_view.setMaximumBlockCount(500)   # cap memory
+        self.log_view.setFixedHeight(150)
+        log_font = self._smaller_font(1)
+        log_font.setStyleHint(QFont.Monospace)
+        log_font.setFamily('monospace')
+        self.log_view.setFont(log_font)
+        lbl_lay.addWidget(self.log_view)
+        root.addWidget(log_box)
+
+    def _smaller_font(self, delta=1):
+        """A copy of the widget's body font, `delta` point(s) smaller. Relative
+        so it always tracks the user's base font instead of a hardcoded px."""
+        f = QFont(self.font())
+        pt = f.pointSize()
+        if pt > 0:
+            f.setPointSize(max(1, pt - delta))
+        else:  # font specified in pixels
+            f.setPixelSize(max(1, f.pixelSize() - 2 * delta))
+        return f
 
     def _mk_spin(self, lo, hi, step, decimals, val):
         s = QDoubleSpinBox()
@@ -309,6 +398,191 @@ class Armv7Widget(QWidget):
             self.damp_spins = spins
         return box
 
+    def _build_joint_box(self):
+        """Single-joint jog (via JTC, position mode) + per-joint fault reset."""
+        box = QGroupBox('单关节控制 / 错误复位  (jog 仅位控模式;复位仅实机)')
+        v = QVBoxLayout(box)
+        # header: jog step + reset-all
+        hdr = QHBoxLayout()
+        hdr.addWidget(QLabel('步长 step'))
+        self.jog_step = self._mk_spin(0.1, 15.0, 0.5, 1, 3.0)   # degrees
+        hdr.addWidget(self.jog_step)
+        hdr.addWidget(QLabel('°'))
+        hdr.addStretch(1)
+        btn_reset_all = QPushButton('全部错误复位')
+        btn_reset_all.clicked.connect(lambda: self._reset_faults(list(range(7))))
+        hdr.addWidget(btn_reset_all)
+        v.addLayout(hdr)
+        # one grid row per joint: name | angle | - | + | reset
+        grid = QGridLayout()
+        self.jpos_lbls = []
+        for j in range(7):
+            grid.addWidget(QLabel(f'关节{j + 1}'), j, 0)
+            lbl = QLabel('--.- °')
+            lbl.setStyleSheet('font-family: monospace;')
+            grid.addWidget(lbl, j, 1)
+            self.jpos_lbls.append(lbl)
+            b_minus = QPushButton('−')
+            b_plus = QPushButton('+')
+            b_minus.setFixedWidth(36)
+            b_plus.setFixedWidth(36)
+            b_minus.clicked.connect(lambda _c, i=j: self._jog_joint(i, -1))
+            b_plus.clicked.connect(lambda _c, i=j: self._jog_joint(i, +1))
+            grid.addWidget(b_minus, j, 2)
+            grid.addWidget(b_plus, j, 3)
+            b_rst = QPushButton('复位')
+            b_rst.setFixedWidth(48)
+            b_rst.clicked.connect(lambda _c, i=j: self._reset_faults([i]))
+            grid.addWidget(b_rst, j, 4)
+        v.addLayout(grid)
+        return box
+
+    def _build_cart_box(self):
+        """Press-and-hold Cartesian jog. Position mode -> MoveIt Servo twist;
+        force mode -> walk the impedance target pose (needs 阻抗弹簧 on)."""
+        box = QGroupBox('笛卡尔 jog  (按住移动;松开停)')
+        v = QVBoxLayout(box)
+        # header: frame + speeds + servo status/stop
+        hdr = QHBoxLayout()
+        hdr.addWidget(QLabel('坐标系'))
+        self.cart_frame = QComboBox()
+        self.cart_frame.addItems(['base_link (世界系)', '末端 tool (工具系)'])
+        hdr.addWidget(self.cart_frame)
+        hdr.addWidget(QLabel('线速 m/s'))
+        self.cart_lin = self._mk_spin(0.005, 0.20, 0.005, 3, 0.05)
+        hdr.addWidget(self.cart_lin)
+        hdr.addWidget(QLabel('角速 rad/s'))
+        self.cart_ang = self._mk_spin(0.02, 1.0, 0.02, 2, 0.20)
+        hdr.addWidget(self.cart_ang)
+        hdr.addStretch(1)
+        self.servo_lbl = QLabel('servo: 未启动')
+        hdr.addWidget(self.servo_lbl)
+        btn_stop = QPushButton('停止 Servo')
+        btn_stop.clicked.connect(self._stop_servo)
+        hdr.addWidget(btn_stop)
+        v.addLayout(hdr)
+        # one row per axis: label  [−]  [+]
+        grid = QGridLayout()
+        for r, (label, idx) in enumerate(CART_AXES):
+            grid.addWidget(QLabel(label), r, 0)
+            b_minus = QPushButton('−')
+            b_plus = QPushButton('+')
+            for b, sign in ((b_minus, -1), (b_plus, +1)):
+                b.setFixedWidth(48)
+                # autoRepeat keeps the QTimer-driven stream alive even if the
+                # press handler races; pressed/released bound the hold.
+                b.pressed.connect(lambda i=idx, s=sign: self._jog_press(i, s))
+                b.released.connect(self._jog_release)
+            grid.addWidget(b_minus, r, 1)
+            grid.addWidget(b_plus, r, 2)
+        v.addLayout(grid)
+        note = QLabel('位控模式经 MoveIt Servo(刚性);力控模式走阻抗目标(需开阻抗弹簧)。'
+                      'q=0 直立为奇异点,servo 会减速/停。')
+        note.setWordWrap(True)
+        note.setStyleSheet('color: #777;')
+        note.setFont(self._smaller_font(1))
+        v.addWidget(note)
+        return box
+
+    # ---------------- cartesian jog handlers --------------------------
+    def _jog_press(self, idx, sign):
+        if self._mode == 'position':
+            self._ensure_servo()
+        elif self._mode == 'force':
+            if not self.spring_check.isChecked():
+                self._status = '力控 jog 需先开"阻抗弹簧"(K>0),否则目标无作用'
+            self._seed_force_jog()
+        else:
+            self._status = 'jog: 模式未知,先切位控或力控'
+            return
+        self._jog_axis = (idx, sign)
+        if not self._jog_timer.isActive():
+            self._jog_timer.start(int(self._jog_dt * 1000))
+
+    def _jog_release(self):
+        self._jog_timer.stop()
+        self._jog_axis = None
+        if self._mode == 'position':
+            self._publish_twist(0, 0.0)   # zero twist -> servo halts promptly
+
+    def _jog_tick(self):
+        if self._jog_axis is None:
+            return
+        idx, sign = self._jog_axis
+        if self._mode == 'position':
+            speed = self.cart_lin.value() if idx < 3 else self.cart_ang.value()
+            self._publish_twist(idx, sign * speed)
+        elif self._mode == 'force':
+            self._advance_force_target(idx, sign)
+
+    def _frame_id(self):
+        return BASE_FRAME if self.cart_frame.currentIndex() == 0 else TIP_FRAME
+
+    def _publish_twist(self, idx, value):
+        msg = TwistStamped()
+        msg.header.stamp = self.node.get_clock().now().to_msg()
+        msg.header.frame_id = self._frame_id()
+        comps = [0.0] * 6
+        comps[idx] = value
+        msg.twist.linear.x, msg.twist.linear.y, msg.twist.linear.z = comps[:3]
+        msg.twist.angular.x, msg.twist.angular.y, msg.twist.angular.z = comps[3:]
+        self._twist_pub.publish(msg)
+
+    def _ensure_servo(self):
+        if self._servo_started:
+            return
+        if not self._servo_start_cli.service_is_ready():
+            self._status = 'servo: start_servo 服务未就绪'
+            return
+        self._servo_start_cli.call_async(Trigger.Request())
+        self._servo_started = True
+        self._status = 'servo: 已启动'
+
+    def _stop_servo(self):
+        if self._servo_stop_cli.service_is_ready():
+            self._servo_stop_cli.call_async(Trigger.Request())
+        self._servo_started = False
+        self._status = 'servo: 已停止'
+
+    def _seed_force_jog(self):
+        try:
+            t = self._tf_buffer.lookup_transform(
+                BASE_FRAME, TIP_FRAME, Time(), timeout=Duration(seconds=0.2))
+            tr = t.transform
+            self._fjog = (
+                np.array([tr.translation.x, tr.translation.y, tr.translation.z]),
+                np.array([tr.rotation.x, tr.rotation.y, tr.rotation.z, tr.rotation.w]))
+        except Exception as e:  # noqa: BLE001
+            self._fjog = None
+            self._status = f'力控 jog 锚定失败 (TF): {e}'
+
+    def _advance_force_target(self, idx, sign):
+        if self._fjog is None:
+            return
+        p, q = self._fjog
+        tool = self.cart_frame.currentIndex() == 1
+        if idx < 3:                       # translation
+            step = sign * self.cart_lin.value() * self._jog_dt
+            axis = np.zeros(3)
+            axis[idx] = step
+            p = p + (quat_rotate(q, axis) if tool else axis)
+        else:                             # rotation
+            ang = sign * self.cart_ang.value() * self._jog_dt
+            rpy = [0.0, 0.0, 0.0]
+            rpy[idx - 3] = ang
+            dq = quat_from_rpy(*rpy)
+            q = quat_mul(q, dq) if tool else quat_mul(dq, q)
+            q = q / np.linalg.norm(q)
+        self._fjog = (p, q)
+        msg = PoseStamped()
+        msg.header.frame_id = BASE_FRAME
+        msg.pose.position.x, msg.pose.position.y, msg.pose.position.z = map(float, p)
+        msg.pose.orientation.x = float(q[0])
+        msg.pose.orientation.y = float(q[1])
+        msg.pose.orientation.z = float(q[2])
+        msg.pose.orientation.w = float(q[3])
+        self._target_pub.publish(msg)
+
     # ---------------- handlers ----------------------------------------
     def _set_enable_button(self, checked):
         """Reflect impedance enabled state without re-firing the enable service."""
@@ -318,7 +592,9 @@ class Armv7Widget(QWidget):
 
     def _switch_to_force(self):
         # to_force engages ZERO-GRAVITY (gravity comp on, K=0), so reflect:
-        # enabled = on, spring = off.
+        # enabled = on, spring = off. Stop servo so it can't stream into the JTC.
+        if self._servo_started:
+            self._stop_servo()
         self._call(self._to_force_cli, '力控')
         self._set_enable_button(True)
         self._set_spring_check(False)
@@ -427,6 +703,45 @@ class Armv7Widget(QWidget):
         self.scale_spin.setValue(0.0)
         self.dz_spin.setValue(0.3)
 
+    def _jog_joint(self, j, sign):
+        """Nudge one joint by step (deg) via the JTC. Position mode only -- in
+        force mode the JTC is inactive and the trajectory is ignored."""
+        if self._mode != 'position':
+            self._status = 'jog 需要位控模式 (先点"切到位控")'
+            return
+        if not self._have_js:
+            self._status = 'jog: 尚未收到 /joint_states'
+            return
+        step = math.radians(self.jog_step.value()) * sign
+        target = list(self._joint_pos)
+        target[j] += step
+        # move time scaled by step magnitude (~0.5 rad/s), floor 0.4 s
+        move_t = max(0.4, abs(step) / 0.5)
+        traj = JointTrajectory()
+        traj.joint_names = list(JOINTS)
+        pt = JointTrajectoryPoint()
+        pt.positions = [float(p) for p in target]
+        pt.velocities = [0.0] * 7
+        pt.time_from_start = Duration(seconds=move_t).to_msg()
+        traj.points = [pt]
+        self._traj_pub.publish(traj)
+        self._status = '关节%d jog %+.1f°' % (j + 1, math.degrees(step))
+
+    def _reset_faults(self, indices):
+        """Pulse a 0->1->0 rising edge on reset_fault for the given joints. The
+        cia402 plugin triggers a CiA-402 fault reset on the rising edge; we drop
+        back to 0 so the edge re-arms. Real hardware only (no subscriber in fake).
+        """
+        rise = Float64MultiArray()
+        rise.data = [1.0 if j in indices else 0.0 for j in range(7)]
+        self._fault_pub.publish(rise)
+        # re-arm the edge shortly after, on the GUI thread
+        QTimer.singleShot(250, lambda: self._fault_pub.publish(
+            Float64MultiArray(data=[0.0] * 7)))
+        which = '全部' if len(indices) == 7 else ' '.join(
+            f'关节{i + 1}' for i in indices)
+        self._status = f'错误复位: {which} (上升沿已发送)'
+
     # ---------------- ROS helpers -------------------------------------
     def _call(self, cli, label):
         if not cli.service_is_ready():
@@ -499,7 +814,21 @@ class Armv7Widget(QWidget):
         self.ext_lbl.setText(
             '外力估计  F [%+7.2f %+7.2f %+7.2f] N  M [%+6.2f %+6.2f %+6.2f] Nm'
             % tuple(x))
-        self.status_lbl.setText(self._status)
+        if self._have_js:
+            for j, lbl in enumerate(self.jpos_lbls):
+                lbl.setText('%+7.2f °' % math.degrees(self._joint_pos[j]))
+        self.servo_lbl.setText('servo: %s' % ('运行' if self._servo_started else '未启动'))
+        # Append new status lines to the pinned log (GUI thread -> Qt-safe). ROS
+        # callbacks only ever write the self._status string; we surface it here.
+        if self._status and self._status != self._status_seen:
+            stamp = self.node.get_clock().now().to_msg().sec % 86400
+            self.log_view.appendPlainText(
+                '[%02d:%02d:%02d] %s' % (stamp // 3600, (stamp % 3600) // 60,
+                                         stamp % 60, self._status))
+            self._status_seen = self._status
 
     def shutdown(self):
         self._timer.stop()
+        self._jog_timer.stop()
+        if self._servo_started:
+            self._stop_servo()
